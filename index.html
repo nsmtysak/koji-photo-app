@@ -65,7 +65,7 @@
         accept="image/*"
         multiple
       />
-      <p id="photo-count" class="picker__count">写真は未選択です</p>
+      <p id="photo-count" class="picker__count"></p>
     </section>
 
     <!-- 写真一覧（並べ替え・削除） -->
@@ -146,10 +146,25 @@
         </div>
       </section>
 
+      <!-- 1ページの写真枚数 -->
+      <section class="card" aria-label="1ページの写真枚数">
+        <h3 class="card__title">1ページの写真枚数</h3>
+        <div id="per-page" class="segmented" role="group" aria-label="写真枚数">
+          <button type="button" class="segmented__btn" data-value="2">2枚</button>
+          <button type="button" class="segmented__btn" data-value="3">3枚</button>
+          <button type="button" class="segmented__btn" data-value="4">4枚</button>
+        </div>
+        <p class="card__note">
+          2枚・3枚は写真の右に文言。4枚は2列2段で写真の下に文言を配置します。
+        </p>
+      </section>
+
       <!-- 施工区分タグ -->
       <section class="card" aria-label="施工区分タグ">
         <h3 class="card__title">施工区分タグ</h3>
-        <p class="card__note">写真ごとの区分でワンタップ選択できる候補です。</p>
+        <p class="card__note">
+          写真ごとの区分でワンタップ選択できる候補です（▲▼で並べ替え）。
+        </p>
         <ul id="cat-list" class="cat-list"></ul>
         <div class="cat-add">
           <input id="cat-new" class="field__input" type="text"

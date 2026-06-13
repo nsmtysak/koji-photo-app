@@ -25,6 +25,7 @@
     mail: "koji.mail",
     cats: "koji.categories",
     recentTo: "koji.recentTo",
+    perPage: "koji.perPage",
   };
 
   function load(key, fallback) {
@@ -74,6 +75,7 @@
     company: Object.assign({}, DEFAULT_COMPANY, load(LS.company, {})),
     mail: Object.assign({}, DEFAULT_MAIL, load(LS.mail, {})),
     cats: load(LS.cats, null) || DEFAULT_CATS.slice(),
+    perPage: [2, 3, 4].indexOf(load(LS.perPage, 3)) >= 0 ? load(LS.perPage, 3) : 3,
   };
   let nextId = 1;
   let catEditMode = false; // 写真側の区分チップが「候補を編集」モードか
@@ -109,6 +111,7 @@
     catNew: $("cat-new"),
     catAddBtn: $("cat-add-btn"),
     catReset: $("cat-reset"),
+    perPage: $("per-page"),
   };
 
   /* ===========================================================
@@ -177,7 +180,26 @@
       renderPhotos(); // 各写真の区分チップも更新
     });
 
+    // 1ページの写真枚数（2/3/4）
+    els.perPage.querySelectorAll(".segmented__btn").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        state.perPage = parseInt(btn.dataset.value, 10);
+        save(LS.perPage, state.perPage);
+        syncPerPage();
+      });
+    });
+    syncPerPage();
+
     renderCats();
+  }
+
+  function syncPerPage() {
+    els.perPage.querySelectorAll(".segmented__btn").forEach((btn) => {
+      btn.classList.toggle(
+        "is-active",
+        parseInt(btn.dataset.value, 10) === state.perPage
+      );
+    });
   }
 
   function addCategory() {
@@ -209,6 +231,17 @@
 
   function deleteCategory(index) {
     state.cats.splice(index, 1);
+    save(LS.cats, state.cats);
+    renderCats();
+    renderPhotos();
+  }
+
+  // 区分タグの並べ替え（設定画面で順番入れ替え）
+  function moveCategory(index, dir) {
+    const target = index + dir;
+    if (target < 0 || target >= state.cats.length) return;
+    const arr = state.cats;
+    [arr[index], arr[target]] = [arr[target], arr[index]];
     save(LS.cats, state.cats);
     renderCats();
     renderPhotos();
@@ -250,6 +283,23 @@
       name.title = "タップで編集";
       name.addEventListener("click", () => editCategory(i));
 
+      // 並べ替え（▲▼）
+      const up = document.createElement("button");
+      up.type = "button";
+      up.className = "icon-btn";
+      up.textContent = "▲";
+      up.setAttribute("aria-label", cat + " を上へ");
+      up.disabled = i === 0;
+      up.addEventListener("click", () => moveCategory(i, -1));
+
+      const down = document.createElement("button");
+      down.type = "button";
+      down.className = "icon-btn";
+      down.textContent = "▼";
+      down.setAttribute("aria-label", cat + " を下へ");
+      down.disabled = i === state.cats.length - 1;
+      down.addEventListener("click", () => moveCategory(i, 1));
+
       const del = document.createElement("button");
       del.type = "button";
       del.className = "icon-btn photo-item__del";
@@ -257,7 +307,7 @@
       del.setAttribute("aria-label", cat + " を削除");
       del.addEventListener("click", () => deleteCategory(i));
 
-      li.append(name, del);
+      li.append(name, up, down, del);
       frag.appendChild(li);
     });
     els.catList.appendChild(frag);
@@ -331,6 +381,9 @@
     }
     els.pdfResult.innerHTML = "";
     els.pdfResult.classList.add("is-hidden");
+
+    // 「PDFを生成」ボタンを元の青背景に戻す
+    els.generatePdf.classList.remove("btn--ghost");
 
     renderPhotos();
   }
@@ -477,8 +530,7 @@
 
   function renderPhotos() {
     const total = state.photos.length;
-    els.count.textContent =
-      total === 0 ? "写真は未選択です" : total + " 枚を選択中";
+    els.count.textContent = total === 0 ? "" : total + " 枚を選択中";
     els.empty.classList.toggle("is-hidden", total > 0);
     els.pdfSection.classList.toggle("is-hidden", total === 0);
     updateClearBtn();
@@ -652,6 +704,15 @@
       return;
     }
 
+    // 生成後に自動でPDFを表示するため、ユーザー操作（クリック）の文脈で
+    // 先に空タブを開いておく（iOSのポップアップブロック回避）。
+    let previewWin = null;
+    try {
+      previewWin = window.open("", "_blank");
+    } catch (e) {
+      previewWin = null;
+    }
+
     els.generatePdf.disabled = true;
     const orgLabel = els.generatePdf.textContent;
     const setLabel = (t) => (els.generatePdf.textContent = t);
@@ -663,6 +724,7 @@
         job: state.job,
         company: state.company,
         photos: state.photos,
+        perPage: state.perPage,
         onProgress: setLabel,
       });
 
@@ -697,14 +759,26 @@
 
       const info = document.createElement("p");
       info.className = "pdf-result__info";
-      const pages = 1 + Math.ceil(state.photos.length / 3);
+      const pages = 1 + Math.ceil(state.photos.length / state.perPage);
       info.textContent =
         filename + "（表紙＋写真" + state.photos.length + "枚 / 全" + pages + "ページ）";
 
       els.pdfResult.append(openLink, sendBox, info);
       els.pdfResult.classList.remove("is-hidden");
+
+      // 生成後に自動でPDFを表示（プレビューを押さなくても開く）
+      if (previewWin && !previewWin.closed) {
+        previewWin.location.href = lastPdfUrl;
+      } else {
+        // ポップアップがブロックされた場合は別タブで開く（アプリ画面は保持）
+        openLink.click();
+      }
+
+      // 一度生成したら「PDFを生成」ボタンを白背景・青文字に
+      els.generatePdf.classList.add("btn--ghost");
     } catch (e) {
       console.error("[koji] PDF生成エラー:", e);
+      if (previewWin && !previewWin.closed) previewWin.close();
       alert("PDFの生成に失敗しました: " + (e && e.message ? e.message : e));
     } finally {
       setLabel(orgLabel);

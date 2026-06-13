@@ -602,3 +602,33 @@ body.no-scroll {
 .cat-add .field__input {
   flex: 1;
 }
+
+/* ===== セグメント選択（写真枚数など） ===== */
+.segmented {
+  display: flex;
+  gap: 0;
+  border: 1px solid var(--accent);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.segmented__btn {
+  flex: 1;
+  min-height: 44px;
+  border: none;
+  border-left: 1px solid var(--accent);
+  background: #fff;
+  color: var(--accent);
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.segmented__btn:first-child {
+  border-left: none;
+}
+
+.segmented__btn.is-active {
+  background: var(--accent);
+  color: #fff;
+}

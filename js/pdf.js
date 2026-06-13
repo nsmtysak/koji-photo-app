@@ -184,7 +184,62 @@ window.KojiPDF = (function () {
     });
   }
 
-  /* ---------- 写真ページの1スロット ---------- */
+  // 画像枠＋画像（アスペクト比保持で枠内に収める）
+  function drawImageBox(page, image, x, y, w, h) {
+    page.drawRectangle({
+      x,
+      y,
+      width: w,
+      height: h,
+      borderColor: COLOR_LINE,
+      borderWidth: 1,
+    });
+    if (image) {
+      const scale = Math.min(w / image.width, h / image.height);
+      const dw = image.width * scale;
+      const dh = image.height * scale;
+      page.drawImage(image, {
+        x: x + (w - dw) / 2,
+        y: y + (h - dh) / 2,
+        width: dw,
+        height: dh,
+      });
+    }
+  }
+
+  // 件名/場所/区分を縦に描画。topYから下へ。最終yを返す。
+  function drawFields(page, font, x, topY, width, texts, labelSize, valSize) {
+    const fields = [
+      ["工事件名", texts.title],
+      ["工事場所", texts.place],
+      ["施工区分", texts.category],
+    ];
+    let ty = topY;
+    fields.forEach((f) => {
+      page.drawText(f[0], {
+        x,
+        y: ty - labelSize,
+        size: labelSize,
+        font,
+        color: COLOR_SUB,
+      });
+      ty -= labelSize + 3;
+      wrapText(font, f[1] || "", valSize, width).forEach((line) => {
+        page.drawText(line, {
+          x,
+          y: ty - valSize,
+          size: valSize,
+          font,
+          color: COLOR_TEXT,
+        });
+        ty -= valSize + 3;
+      });
+      ty -= 6; // フィールド間
+    });
+    return ty;
+  }
+
+  /* ---------- 行レイアウト（2・3枚/ページ）: 左=写真、右=文言 ---------- */
   function drawPhotoSlot(page, font, image, texts, slotTop, slotH) {
     const pad = 10;
     const innerTop = slotTop - pad;
@@ -192,68 +247,24 @@ window.KojiPDF = (function () {
     const imgBoxX = MARGIN;
     const imgBoxW = 290;
     const imgBoxY = innerTop - innerH;
-    const imgBoxH = innerH;
 
-    // 画像枠
-    page.drawRectangle({
-      x: imgBoxX,
-      y: imgBoxY,
-      width: imgBoxW,
-      height: imgBoxH,
-      borderColor: COLOR_LINE,
-      borderWidth: 1,
-    });
+    drawImageBox(page, image, imgBoxX, imgBoxY, imgBoxW, innerH);
 
-    // 画像（アスペクト比保持で枠内に収める）
-    if (image) {
-      const iw = image.width;
-      const ih = image.height;
-      const scale = Math.min(imgBoxW / iw, imgBoxH / ih);
-      const dw = iw * scale;
-      const dh = ih * scale;
-      page.drawImage(image, {
-        x: imgBoxX + (imgBoxW - dw) / 2,
-        y: imgBoxY + (imgBoxH - dh) / 2,
-        width: dw,
-        height: dh,
-      });
-    }
-
-    // 右側テキスト
     const textX = imgBoxX + imgBoxW + 18;
     const textW = W - MARGIN - textX;
-    const labelSize = 10;
-    const valSize = 12;
-    let ty = innerTop - 6;
+    drawFields(page, font, textX, innerTop - 6, textW, texts, 10, 12);
+  }
 
-    const fields = [
-      ["工事件名", texts.title],
-      ["工事場所", texts.place],
-      ["施工区分", texts.category],
-    ];
+  /* ---------- グリッドレイアウト（4枚/ページ）: 上=写真、下=文言 ---------- */
+  function drawPhotoCell(page, font, image, texts, cellLeft, cellTop, cellW, cellH) {
+    const textH = 84;
+    const imgBoxH = cellH - textH;
+    const imgBoxY = cellTop - imgBoxH; // 枠の下端
 
-    fields.forEach((f) => {
-      page.drawText(f[0], {
-        x: textX,
-        y: ty - labelSize,
-        size: labelSize,
-        font,
-        color: COLOR_SUB,
-      });
-      ty -= labelSize + 4;
-      const valLines = wrapText(font, f[1] || "", valSize, textW);
-      valLines.forEach((line) => {
-        page.drawText(line, {
-          x: textX,
-          y: ty - valSize,
-          size: valSize,
-          font,
-          color: COLOR_TEXT,
-        });
-        ty -= valSize + 4;
-      });
-      ty -= 8; // フィールド間
-    });
+    drawImageBox(page, image, cellLeft, imgBoxY, cellW, imgBoxH);
+
+    // 写真の下に文言
+    drawFields(page, font, cellLeft, imgBoxY - 6, cellW, texts, 9, 11);
   }
 
   /* ---------- メイン ---------- */
@@ -275,10 +286,17 @@ window.KojiPDF = (function () {
     const cover = doc.addPage([W, H]);
     drawCover(cover, font, job, company);
 
-    // 写真ページ（3枚/ページ）
-    const perPage = 3;
+    // 写真ページ（2/3枚=行レイアウト, 4枚=2列2段グリッド）
+    const perPage = [2, 3, 4].indexOf(data.perPage) >= 0 ? data.perPage : 3;
+    const contentW = W - MARGIN * 2;
     const contentH = H - MARGIN * 2;
-    const slotH = contentH / perPage;
+    const contentTop = H - MARGIN;
+
+    // 4枚グリッドの寸法
+    const gapX = 16;
+    const gapY = 16;
+    const cellW = (contentW - gapX) / 2;
+    const cellH = (contentH - gapY) / 2;
 
     for (let i = 0; i < photos.length; i++) {
       onProgress("写真を処理中… " + (i + 1) + "/" + photos.length);
@@ -299,22 +317,25 @@ window.KojiPDF = (function () {
         console.error("[koji] 画像の埋め込み失敗:", e);
       }
 
-      const slotIndex = i % perPage;
-      const slotTop = H - MARGIN - slotIndex * slotH;
+      const texts = {
+        // 件名・場所は工事情報の共通値、区分は写真ごと
+        title: job.name || "",
+        place: job.place || "",
+        category: photo.category || "",
+      };
+      const idx = i % perPage;
 
-      drawPhotoSlot(
-        page,
-        font,
-        image,
-        {
-          // 件名・場所は工事情報の共通値、区分は写真ごと
-          title: job.name || "",
-          place: job.place || "",
-          category: photo.category || "",
-        },
-        slotTop,
-        slotH
-      );
+      if (perPage === 4) {
+        const col = idx % 2;
+        const row = Math.floor(idx / 2);
+        const cellLeft = MARGIN + col * (cellW + gapX);
+        const cellTop = contentTop - row * (cellH + gapY);
+        drawPhotoCell(page, font, image, texts, cellLeft, cellTop, cellW, cellH);
+      } else {
+        const slotH = contentH / perPage;
+        const slotTop = contentTop - idx * slotH;
+        drawPhotoSlot(page, font, image, texts, slotTop, slotH);
+      }
     }
 
     onProgress("PDFを書き出し中…");
