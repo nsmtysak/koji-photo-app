@@ -21,7 +21,10 @@ window.KojiPDF = (function () {
   const COLOR_SUB = rgb(0.45, 0.45, 0.46);
   const COLOR_LINE = rgb(0.78, 0.78, 0.8);
 
-  const FONT_URL = "fonts/NotoSansJP-Regular.otf";
+  // 日本語フォント（TrueType/glyf）。
+  // 注: pdf-lib(1.17.1)+fontkit のサブセット機能はグリフ欠落のバグがあるため、
+  //     subset を使わず全埋め込み（embedFont の subset:false）で確実に埋め込む。
+  const FONT_URL = "fonts/MPLUS1p-Regular.ttf";
   let fontBytesCache = null;
 
   async function getFontBytes() {
@@ -265,7 +268,8 @@ window.KojiPDF = (function () {
 
     onProgress("フォントを準備中…");
     const fontBytes = await getFontBytes();
-    const font = await doc.embedFont(fontBytes, { subset: true });
+    // subset:false で全グリフを埋め込む（サブセッタのグリフ欠落バグ回避）
+    const font = await doc.embedFont(fontBytes, { subset: false });
 
     // 表紙
     const cover = doc.addPage([W, H]);
