@@ -462,6 +462,28 @@
     return (s || "工事").replace(/[\\/:*?"<>|\s]+/g, "_").slice(0, 40);
   }
 
+  // PDFを端末に保存する。
+  // iOS等: 共有シート経由で「"ファイル"に保存」を選べる（ローカル保存）。
+  // 非対応環境: <a download> でダウンロード保存にフォールバック。
+  async function savePdf(file, filename) {
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      try {
+        await navigator.share({ files: [file], title: filename });
+        return;
+      } catch (e) {
+        // ユーザーがキャンセルした場合は何もしない
+        if (e && e.name === "AbortError") return;
+        // それ以外はダウンロードにフォールバック
+      }
+    }
+    const a = document.createElement("a");
+    a.href = lastPdfUrl;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  }
+
   async function generatePdf() {
     if (state.photos.length === 0) return;
     if (typeof window.KojiPDF === "undefined") {
@@ -492,8 +514,15 @@
       const filename =
         "工事写真帳_" + sanitizeFileName(state.job.name) + "_" + today + ".pdf";
 
+      // 保存・共有用の File（iOSの共有シートで「"ファイル"に保存」が選べる）
+      const file = new File([blob], filename, { type: "application/pdf" });
+      const canShareFile =
+        navigator.canShare && navigator.canShare({ files: [file] });
+
       // 結果UI
       els.pdfResult.innerHTML = "";
+
+      // プレビュー
       const openLink = document.createElement("a");
       openLink.href = lastPdfUrl;
       openLink.target = "_blank";
@@ -501,11 +530,14 @@
       openLink.className = "btn btn--block";
       openLink.textContent = "PDFを開く（プレビュー）";
 
-      const dlLink = document.createElement("a");
-      dlLink.href = lastPdfUrl;
-      dlLink.download = filename;
-      dlLink.className = "btn btn--ghost btn--block";
-      dlLink.textContent = "PDFを保存";
+      // 保存（端末に保存）
+      const saveBtn = document.createElement("button");
+      saveBtn.type = "button";
+      saveBtn.className = "btn btn--ghost btn--block";
+      saveBtn.textContent = canShareFile
+        ? "PDFを保存（“ファイル”Appへ）"
+        : "PDFを保存（ダウンロード）";
+      saveBtn.addEventListener("click", () => savePdf(file, filename));
 
       const info = document.createElement("p");
       info.className = "pdf-result__info";
@@ -513,7 +545,13 @@
       info.textContent =
         filename + "（表紙＋写真" + state.photos.length + "枚 / 全" + pages + "ページ）";
 
-      els.pdfResult.append(openLink, dlLink, info);
+      const hint = document.createElement("p");
+      hint.className = "pdf-result__info";
+      hint.textContent = canShareFile
+        ? "「保存」→ 共有シートで「“ファイル”に保存」を選ぶと端末に保存できます。"
+        : "「保存」でダウンロードフォルダに保存されます。";
+
+      els.pdfResult.append(openLink, saveBtn, info, hint);
       els.pdfResult.classList.remove("is-hidden");
     } catch (e) {
       console.error("[koji] PDF生成エラー:", e);
