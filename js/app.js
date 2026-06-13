@@ -90,6 +90,9 @@
     count: $("photo-count"),
     empty: $("empty-state"),
     clearAll: $("clear-all"),
+    pdfSection: $("pdf-section"),
+    generatePdf: $("generate-pdf"),
+    pdfResult: $("pdf-result"),
     // 設定
     openSettings: $("open-settings"),
     closeSettings: $("close-settings"),
@@ -440,6 +443,7 @@
       total === 0 ? "写真は未選択です" : total + " 枚を選択中";
     els.empty.classList.toggle("is-hidden", total > 0);
     els.clearAll.classList.toggle("is-hidden", total === 0);
+    els.pdfSection.classList.toggle("is-hidden", total === 0);
 
     els.list.innerHTML = "";
     const frag = document.createDocumentFragment();
@@ -450,6 +454,77 @@
   }
 
   /* ===========================================================
+     PDF生成
+     =========================================================== */
+  let lastPdfUrl = null;
+
+  function sanitizeFileName(s) {
+    return (s || "工事").replace(/[\\/:*?"<>|\s]+/g, "_").slice(0, 40);
+  }
+
+  async function generatePdf() {
+    if (state.photos.length === 0) return;
+    if (typeof window.KojiPDF === "undefined") {
+      alert("PDFライブラリの読み込みに失敗しました。通信状況を確認して再読み込みしてください。");
+      return;
+    }
+
+    els.generatePdf.disabled = true;
+    const orgLabel = els.generatePdf.textContent;
+    const setLabel = (t) => (els.generatePdf.textContent = t);
+    setLabel("生成中…");
+    els.pdfResult.classList.add("is-hidden");
+
+    try {
+      const bytes = await window.KojiPDF.generate({
+        job: state.job,
+        company: state.company,
+        photos: state.photos,
+        onProgress: setLabel,
+      });
+
+      // 以前のURLを解放
+      if (lastPdfUrl) URL.revokeObjectURL(lastPdfUrl);
+      const blob = new Blob([bytes], { type: "application/pdf" });
+      lastPdfUrl = URL.createObjectURL(blob);
+
+      const today = new Date().toISOString().slice(0, 10);
+      const filename =
+        "工事写真帳_" + sanitizeFileName(state.job.name) + "_" + today + ".pdf";
+
+      // 結果UI
+      els.pdfResult.innerHTML = "";
+      const openLink = document.createElement("a");
+      openLink.href = lastPdfUrl;
+      openLink.target = "_blank";
+      openLink.rel = "noopener";
+      openLink.className = "btn btn--block";
+      openLink.textContent = "PDFを開く（プレビュー）";
+
+      const dlLink = document.createElement("a");
+      dlLink.href = lastPdfUrl;
+      dlLink.download = filename;
+      dlLink.className = "btn btn--ghost btn--block";
+      dlLink.textContent = "PDFを保存";
+
+      const info = document.createElement("p");
+      info.className = "pdf-result__info";
+      const pages = 1 + Math.ceil(state.photos.length / 3);
+      info.textContent =
+        filename + "（表紙＋写真" + state.photos.length + "枚 / 全" + pages + "ページ）";
+
+      els.pdfResult.append(openLink, dlLink, info);
+      els.pdfResult.classList.remove("is-hidden");
+    } catch (e) {
+      console.error("[koji] PDF生成エラー:", e);
+      alert("PDFの生成に失敗しました: " + (e && e.message ? e.message : e));
+    } finally {
+      setLabel(orgLabel);
+      els.generatePdf.disabled = false;
+    }
+  }
+
+  /* ===========================================================
      イベント / 初期化
      =========================================================== */
   els.input.addEventListener("change", (e) => {
@@ -457,9 +532,10 @@
     e.target.value = ""; // 同じ写真を連続選択しても発火させる
   });
   els.clearAll.addEventListener("click", clearAll);
+  els.generatePdf.addEventListener("click", generatePdf);
 
   initJobInfo();
   initSettings();
   renderPhotos();
-  console.log("[koji] 工事写真台帳 起動（Phase 2）");
+  console.log("[koji] 工事写真台帳 起動（Phase 3）");
 })();

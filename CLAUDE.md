@@ -32,11 +32,22 @@ koujikanri/
 ├── css/
 │   └── style.css       # グローバルスタイル（CSS変数でテーマ管理）
 ├── js/
-│   └── app.js          # アプリ本体（写真選択/並べ替え + 工事情報/写真ごとテキスト/設定）
+│   ├── app.js          # アプリ本体（写真選択/並べ替え + 工事情報/写真ごとテキスト/設定 + PDF起動）
+│   ├── pdf.js          # PDF生成（pdf-lib + fontkit、表紙＋3枚/ページ）
+│   └── lib/
+│       ├── pdf-lib.min.js        # ローカル同梱（オフライン対応）
+│       └── fontkit.umd.min.js    # ローカル同梱
+├── fonts/
+│   └── NotoSansJP-Regular.otf    # 日本語フォント（CFF/OpenType、サブセット埋め込み）
 └── icons/
     ├── icon-192.png    # プレースホルダ（要差し替え）
     └── icon-512.png    # プレースホルダ（要差し替え）
 ```
+
+PDF: `window.KojiPDF.generate({ job, company, photos, onProgress })` → Uint8Array。
+写真は canvas 経由で JPEG 化（HEIC/EXIF回転/サイズ最適化, 最大1600px）してから `embedJpg`。
+日本語は Noto Sans JP を `embedFont(bytes, { subset:true })` で埋め込み（CFFサブセット動作確認済み）。
+ファイル名: `工事写真帳_{工事名}_{YYYY-MM-DD}.pdf`。
 
 ## 4. 段階的開発計画（Phase 0〜4）
 
@@ -45,7 +56,7 @@ koujikanri/
 | Phase 0 | プロジェクト初期化・CLAUDE.md・PWA骨組み | ホーム画面に追加でき、空アプリが起動 | ✅ 完了 |
 | Phase 1 | 写真の複数選択＋一覧表示＋並べ替え | 写真を選び、サムネを並べ替えできる | ✅ 完了 |
 | Phase 2 | 工事情報入力＋写真ごとのテキスト入力＋設定画面 | 各写真に件名/場所/区分を付与でき、設定が保存される | ✅ 完了 |
-| Phase 3 | 写真帳PDF生成（表紙＋3枚/ページ、日本語フォント埋め込み） | 現行報告書と同等のPDFが出力できる | 未着手 |
+| Phase 3 | 写真帳PDF生成（表紙＋3枚/ページ、日本語フォント埋め込み） | 現行報告書と同等のPDFが出力できる | ✅ 完了 |
 | Phase 4 | 共有シート連携（宛先・件名の雛形反映）＋仕上げ | PDFをメールで送付でき、UIが整う | 未着手 |
 
 各Phaseは順に積み上げる。1つ完了 → iPhoneで確認 → 次へ。

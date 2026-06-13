@@ -79,6 +79,14 @@
       <p class="empty-state__sub">並び順がそのままPDFの掲載順になります。</p>
     </section>
 
+    <!-- PDF生成（写真がある時のみ表示） -->
+    <section id="pdf-section" class="pdf-section is-hidden" aria-label="PDF生成">
+      <button id="generate-pdf" class="btn btn--block" type="button">
+        PDFを生成
+      </button>
+      <div id="pdf-result" class="pdf-result is-hidden"></div>
+    </section>
+
     <!-- 全削除（一覧がある時のみ表示） -->
     <button id="clear-all" class="btn btn--ghost btn--block is-hidden" type="button">
       すべての写真を取り消す
@@ -157,6 +165,10 @@
     </div>
   </div>
 
+  <!-- PDF生成ライブラリ（ローカル同梱・オフライン対応） -->
+  <script src="js/lib/pdf-lib.min.js"></script>
+  <script src="js/lib/fontkit.umd.min.js"></script>
+  <script src="js/pdf.js"></script>
   <script src="js/app.js"></script>
 </body>
 </html>
