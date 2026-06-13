@@ -112,3 +112,144 @@ body {
   background: var(--accent-dark);
   transform: scale(0.98);
 }
+
+.btn--block {
+  display: flex;
+  width: 100%;
+}
+
+.btn--ghost {
+  background: transparent;
+  color: var(--accent);
+  border: 1px solid var(--border);
+}
+
+.btn--ghost:active {
+  background: rgba(0, 0, 0, 0.04);
+}
+
+/* 視覚的に隠す（file input 本体） */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.is-hidden {
+  display: none !important;
+}
+
+/* ===== 写真選択バー ===== */
+.picker {
+  margin-bottom: 16px;
+}
+
+.picker__count {
+  margin: 10px 2px 0;
+  font-size: 13px;
+  color: var(--text-sub);
+  text-align: center;
+}
+
+/* ===== 空状態 ===== */
+.empty-state {
+  background: var(--surface);
+  border-radius: var(--radius);
+  padding: 32px 20px;
+  text-align: center;
+  margin-top: 8px;
+}
+
+.empty-state__text {
+  margin: 0 0 8px;
+  font-size: 15px;
+}
+
+.empty-state__sub {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-sub);
+}
+
+/* ===== 写真一覧 ===== */
+.photo-list {
+  list-style: none;
+  margin: 0 0 16px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.photo-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--surface);
+  border-radius: var(--radius);
+  padding: 10px;
+}
+
+.photo-item__num {
+  flex: 0 0 auto;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.photo-item__thumb {
+  flex: 0 0 auto;
+  width: 64px;
+  height: 64px;
+  object-fit: cover;       /* 写真は無加工。表示の収まりのみ */
+  border-radius: 8px;
+  background: var(--bg);
+}
+
+.photo-item__ctrls {
+  margin-left: auto;
+  display: flex;
+  gap: 6px;
+}
+
+/* ===== アイコンボタン（44px タップ領域） ===== */
+.icon-btn {
+  width: var(--tap-min);
+  height: var(--tap-min);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 15px;
+  cursor: pointer;
+  transition: background 0.12s ease, opacity 0.12s ease;
+}
+
+.icon-btn:active {
+  background: rgba(0, 0, 0, 0.06);
+}
+
+.icon-btn:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+.photo-item__del {
+  color: #ff3b30;          /* 削除は赤系 */
+}
