@@ -73,6 +73,10 @@ PDF: `window.KojiPDF.generate({ job, company, photos, onProgress })` → Uint8Ar
 - `koji.categories` … `string[]`（施工区分タグの候補。設定画面で▲▼並べ替え可）
 - `koji.recentTo` … `string[]`（直近に使ったメール宛先。送付時の候補表示）
 - `koji.perPage` … `2|3|4`（1ページの写真枚数。既定3）
+- `koji.session` … `{ order:[id], cats:{id:区分} }`（作業中の写真の並び順・区分。本体は IndexedDB `koji-db/photos`）
+
+写真本体は **IndexedDB に一時退避**し、iOSのPWA再読み込み（プレビュー表示で背面化等）後も復元する。
+これは「溜め込み」ではなく作業セッションの保全で、**クリアで IndexedDB ごと消去**する。
 
 写真ごとに設定するのは **施工区分（`category`）のみ**。工事件名・工事場所は
 工事情報（`koji.jobInfo` の name/place）の共通値を全写真で使う（写真ごとには持たない）。

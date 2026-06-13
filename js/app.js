@@ -26,6 +26,7 @@
     cats: "koji.categories",
     recentTo: "koji.recentTo",
     perPage: "koji.perPage",
+    session: "koji.session", // 写真の並び順・区分（本体はIndexedDB）
   };
 
   function load(key, fallback) {
@@ -43,6 +44,47 @@
       console.warn("[koji] 保存失敗:", key, e);
     }
   }
+
+  /* ---------- IndexedDB（写真本体の一時保存。再読み込みで復元） ----------
+     iOSはPWAを背面化/プレビュー表示で再読み込みすることがあり、メモリ上の
+     写真が失われる。作業セッション中だけIndexedDBに退避し復元する（クリアで消去）。 */
+  const IDB = (function () {
+    const DB = "koji-db";
+    const STORE = "photos";
+    let dbp = null;
+    function open() {
+      if (dbp) return dbp;
+      dbp = new Promise((res, rej) => {
+        const r = indexedDB.open(DB, 1);
+        r.onupgradeneeded = () => {
+          const db = r.result;
+          if (!db.objectStoreNames.contains(STORE)) db.createObjectStore(STORE);
+        };
+        r.onsuccess = () => res(r.result);
+        r.onerror = () => rej(r.error);
+      });
+      return dbp;
+    }
+    function run(mode, fn) {
+      return open().then(
+        (db) =>
+          new Promise((res, rej) => {
+            const t = db.transaction(STORE, mode);
+            const store = t.objectStore(STORE);
+            const out = fn(store);
+            t.oncomplete = () => res(out && out.result !== undefined ? out.result : out);
+            t.onerror = () => rej(t.error);
+            t.onabort = () => rej(t.error);
+          })
+      );
+    }
+    return {
+      put: (id, blob) => run("readwrite", (s) => s.put(blob, id)).catch(() => {}),
+      del: (id) => run("readwrite", (s) => s.delete(id)).catch(() => {}),
+      clear: () => run("readwrite", (s) => s.clear()).catch(() => {}),
+      get: (id) => run("readonly", (s) => s.get(id)).catch(() => null),
+    };
+  })();
 
   /* ---------- 既定値 ---------- */
   const DEFAULT_CATS = [
@@ -316,6 +358,37 @@
   /* ===========================================================
      写真
      =========================================================== */
+  // 写真の並び順・区分を localStorage に、本体はIndexedDBに退避
+  function saveSession() {
+    const order = state.photos.map((p) => p.id);
+    const cats = {};
+    state.photos.forEach((p) => {
+      if (p.category) cats[p.id] = p.category;
+    });
+    save(LS.session, { order: order, cats: cats });
+  }
+
+  // 起動時: IndexedDBから写真を復元（再読み込み対策）
+  async function restoreSession() {
+    const s = load(LS.session, null);
+    if (!s || !Array.isArray(s.order) || s.order.length === 0) return;
+    const restored = [];
+    for (const id of s.order) {
+      const blob = await IDB.get(id);
+      if (!blob) continue;
+      restored.push({
+        id: id,
+        file: blob,
+        url: URL.createObjectURL(blob),
+        category: (s.cats && s.cats[id]) || "",
+      });
+    }
+    if (restored.length === 0) return;
+    state.photos = restored;
+    nextId = Math.max.apply(null, restored.map((p) => p.id)) + 1;
+    renderPhotos();
+  }
+
   function addFiles(fileList) {
     const files = Array.from(fileList || []).filter((f) =>
       f.type.startsWith("image/")
@@ -323,15 +396,18 @@
     if (files.length === 0) return;
 
     files.forEach((file) => {
+      const id = nextId++;
       state.photos.push({
-        id: nextId++,
+        id: id,
         file: file,
         url: URL.createObjectURL(file),
         // 工事件名・工事場所は工事情報の共通値を使うため写真ごとには持たない。
         // 写真ごとに設定するのは施工区分のみ。
         category: "",
       });
+      IDB.put(id, file); // 本体を退避
     });
+    saveSession();
     renderPhotos();
   }
 
@@ -340,6 +416,7 @@
     if (target < 0 || target >= state.photos.length) return;
     const arr = state.photos;
     [arr[index], arr[target]] = [arr[target], arr[index]];
+    saveSession();
     renderPhotos();
   }
 
@@ -348,6 +425,8 @@
     if (idx === -1) return;
     URL.revokeObjectURL(state.photos[idx].url);
     state.photos.splice(idx, 1);
+    IDB.del(id);
+    saveSession();
     renderPhotos();
   }
 
@@ -363,9 +442,11 @@
     )
       return;
 
-    // 写真
+    // 写真（メモリ・IndexedDB・並び順をすべて消去）
     state.photos.forEach((p) => URL.revokeObjectURL(p.url));
     state.photos = [];
+    IDB.clear();
+    save(LS.session, { order: [], cats: {} });
 
     // 工事情報
     state.job = { orderNo: "", name: "", place: "" };
@@ -448,6 +529,7 @@
     catInput.addEventListener("input", () => {
       photo.category = catInput.value;
       syncChips(chips, photo.category);
+      saveSession();
     });
 
     const chips = document.createElement("div");
@@ -484,6 +566,7 @@
           photo.category = cat;
           catInput.value = cat;
           syncChips(chips, cat);
+          saveSession();
         });
         chips.appendChild(chip);
       });
@@ -670,30 +753,31 @@
     subjCopy.addEventListener("click", () => copyText(subject, subjCopy));
     subjRow.append(subjLabel, subjVal, subjCopy);
 
-    // ボタン: 宛先つきでメール作成 / PDFを共有・保存
-    const mailBtn = document.createElement("button");
-    mailBtn.type = "button";
-    mailBtn.className = "btn btn--block";
-    mailBtn.textContent = "宛先つきでメール作成";
-    mailBtn.addEventListener("click", () => composeMail(toInput.value, subject));
-
+    // 主役: PDFを添付して送る（共有シート → メールでPDFが添付される）
     const shareBtn = document.createElement("button");
     shareBtn.type = "button";
-    shareBtn.className = "btn btn--ghost btn--block";
+    shareBtn.className = "btn btn--block";
     shareBtn.textContent = canShareFile
-      ? "PDFを共有・保存（“ファイル”や他のメール）"
+      ? "PDFを添付してメール送付"
       : "PDFを保存（ダウンロード）";
     shareBtn.addEventListener("click", () =>
       sharePdf(file, subject, toInput.value)
     );
 
+    // 副: 宛先・件名つきでメール作成（mailtoのため添付は不可）
+    const mailBtn = document.createElement("button");
+    mailBtn.type = "button";
+    mailBtn.className = "btn btn--ghost btn--block";
+    mailBtn.textContent = "宛先・件名でメール作成（添付なし）";
+    mailBtn.addEventListener("click", () => composeMail(toInput.value, subject));
+
     const note = document.createElement("p");
     note.className = "send-box__note";
     note.textContent = canShareFile
-      ? "「宛先つきでメール作成」: 入力した宛先・件名でメール作成画面が開きます（PDFは手動で添付）。／「PDFを共有・保存」: 共有シートでメールに添付したり“ファイル”に保存できます。"
-      : "「宛先つきでメール作成」: 入力した宛先・件名でメール作成が開きます。／「PDFを保存」: ダウンロード保存します。PDFは手動で添付してください。";
+      ? "「PDFを添付してメール送付」: 共有シートで“メール”を選ぶとPDFが添付されます（宛先は自動入力されないため、上の宛先を長押しコピーして貼り付け）。／「メール作成（添付なし）」: 宛先・件名は入りますがPDFは添付されません。"
+      : "「PDFを保存」でダウンロード後、メールに手動で添付してください。「メール作成（添付なし）」は宛先・件名のみ入ります。";
 
-    box.append(toRow, subjRow, mailBtn, shareBtn, note);
+    box.append(toRow, subjRow, shareBtn, mailBtn, note);
     return box;
   }
 
@@ -799,5 +883,6 @@
   initJobInfo();
   initSettings();
   renderPhotos();
+  restoreSession(); // 再読み込み時に作業中の写真を復元
   console.log("[koji] 工事写真台帳 起動（Phase 4）");
 })();
