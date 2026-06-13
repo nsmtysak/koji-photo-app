@@ -1,0 +1,114 @@
+/* ===========================================================
+   工事写真台帳 — グローバルスタイル
+   Apple風ミニマル / スマホ前提
+   =========================================================== */
+
+:root {
+  --accent: #007AFF;          /* アクセント1色 */
+  --accent-dark: #0062cc;
+  --bg: #f2f2f7;              /* 薄グレー背景 */
+  --surface: #ffffff;        /* カード・面 */
+  --text: #1c1c1e;           /* 主テキスト */
+  --text-sub: #8e8e93;       /* 補助テキスト */
+  --border: #d1d1d6;
+  --radius: 12px;
+  --tap-min: 44px;           /* 最小タップ領域 */
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+* {
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  overflow-x: hidden;        /* 横スクロール禁止 */
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans",
+    "Helvetica Neue", "Segoe UI", sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  text-size-adjust: 100%;
+  min-height: 100dvh;
+}
+
+/* ===== ヘッダー ===== */
+.app-header {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  padding: calc(var(--safe-top) + 12px) 16px 12px;
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: saturate(180%) blur(20px);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  border-bottom: 0.5px solid var(--border);
+  text-align: center;
+}
+
+.app-title {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: 0.2px;
+}
+
+/* ===== メイン ===== */
+.app-main {
+  padding: 16px;
+  padding-bottom: calc(var(--safe-bottom) + 16px);
+  max-width: 720px;
+  margin: 0 auto;
+}
+
+/* ===== 空ホーム ===== */
+.home-empty {
+  background: var(--surface);
+  border-radius: var(--radius);
+  padding: 32px 20px;
+  text-align: center;
+  margin-top: 24px;
+}
+
+.home-empty__text {
+  margin: 0 0 8px;
+  font-size: 16px;
+  color: var(--text);
+}
+
+.home-empty__sub {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-sub);
+}
+
+/* ===== 汎用ボタン（後Phaseで使用） ===== */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--tap-min);
+  min-width: var(--tap-min);
+  padding: 0 18px;
+  border: none;
+  border-radius: 10px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease, transform 0.05s ease;
+}
+
+.btn:active {
+  background: var(--accent-dark);
+  transform: scale(0.98);
+}
