@@ -75,6 +75,7 @@
     cats: load(LS.cats, null) || DEFAULT_CATS.slice(),
   };
   let nextId = 1;
+  let catEditMode = false; // 写真側の区分チップが「候補を編集」モードか
 
   /* ---------- DOM 参照 ---------- */
   const $ = (id) => document.getElementById(id);
@@ -203,6 +204,28 @@
     state.cats.splice(index, 1);
     save(LS.cats, state.cats);
     renderCats();
+    renderPhotos();
+  }
+
+  // 値ベースの候補 追加 / 削除（写真側のインライン編集から使用）
+  function addCandidateValue(value) {
+    const v = (value || "").trim();
+    if (!v || state.cats.includes(v)) return;
+    state.cats.push(v);
+    save(LS.cats, state.cats);
+    renderCats();
+    renderPhotos();
+  }
+  function removeCandidateValue(cat) {
+    const i = state.cats.indexOf(cat);
+    if (i === -1) return;
+    state.cats.splice(i, 1);
+    save(LS.cats, state.cats);
+    renderCats();
+    renderPhotos();
+  }
+  function toggleCatEdit() {
+    catEditMode = !catEditMode;
     renderPhotos();
   }
 
@@ -344,21 +367,61 @@
 
     const chips = document.createElement("div");
     chips.className = "chips";
-    state.cats.forEach((cat) => {
-      const chip = document.createElement("button");
-      chip.type = "button";
-      chip.className = "chip";
-      chip.textContent = cat;
-      chip.addEventListener("click", () => {
-        photo.category = cat;
-        catInput.value = cat;
-        syncChips(chips, cat);
-      });
-      chips.appendChild(chip);
-    });
-    syncChips(chips, photo.category);
 
-    catWrap.append(catLabel, catInput, chips);
+    if (catEditMode) {
+      // 編集モード: 各候補は ✕ で削除、末尾の「＋追加」で候補を追加
+      state.cats.forEach((cat) => {
+        const chip = document.createElement("button");
+        chip.type = "button";
+        chip.className = "chip chip--editing";
+        chip.textContent = cat + "  ✕";
+        chip.setAttribute("aria-label", cat + " を候補から削除");
+        chip.addEventListener("click", () => removeCandidateValue(cat));
+        chips.appendChild(chip);
+      });
+      const addChip = document.createElement("button");
+      addChip.type = "button";
+      addChip.className = "chip chip--add";
+      addChip.textContent = "＋ 追加";
+      addChip.addEventListener("click", () => {
+        const v = prompt("追加する施工区分を入力", catInput.value.trim());
+        if (v != null) addCandidateValue(v);
+      });
+      chips.appendChild(addChip);
+    } else {
+      // 通常モード: タップで選択
+      state.cats.forEach((cat) => {
+        const chip = document.createElement("button");
+        chip.type = "button";
+        chip.className = "chip";
+        chip.textContent = cat;
+        chip.addEventListener("click", () => {
+          photo.category = cat;
+          catInput.value = cat;
+          syncChips(chips, cat);
+        });
+        chips.appendChild(chip);
+      });
+      syncChips(chips, photo.category);
+    }
+
+    // 候補の編集トグル
+    const catTools = document.createElement("div");
+    catTools.className = "cat-tools";
+    const editToggle = document.createElement("button");
+    editToggle.type = "button";
+    editToggle.className = "link-btn";
+    editToggle.textContent = catEditMode ? "完了" : "候補を編集";
+    editToggle.addEventListener("click", toggleCatEdit);
+    catTools.appendChild(editToggle);
+    if (catEditMode) {
+      const hint = document.createElement("span");
+      hint.className = "cat-tools__hint";
+      hint.textContent = "✕で削除 ／「＋追加」で候補を追加";
+      catTools.appendChild(hint);
+    }
+
+    catWrap.append(catLabel, catInput, chips, catTools);
 
     body.append(catWrap);
     li.append(head, body);

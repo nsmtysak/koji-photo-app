@@ -334,6 +334,43 @@ body {
   color: #fff;
 }
 
+/* 編集モードのチップ（削除可能） */
+.chip--editing {
+  border-color: #ff3b30;
+  color: #ff3b30;
+  background: #fff5f5;
+}
+
+/* 候補を追加するチップ */
+.chip--add {
+  border-style: dashed;
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* 区分の編集トグル行 */
+.cat-tools {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 6px;
+}
+
+.cat-tools__hint {
+  font-size: 11px;
+  color: var(--text-sub);
+}
+
+.link-btn {
+  min-height: 32px;
+  padding: 0 4px;
+  border: none;
+  background: transparent;
+  color: var(--accent);
+  font-size: 13px;
+  cursor: pointer;
+}
+
 /* ===== カード / フォーム共通 ===== */
 .card {
   background: var(--surface);
