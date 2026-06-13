@@ -24,6 +24,7 @@
     company: "koji.company",
     mail: "koji.mail",
     cats: "koji.categories",
+    recentTo: "koji.recentTo",
   };
 
   function load(key, fallback) {
@@ -519,11 +520,37 @@
     }
   }
 
-  // PDFをメールで送付（共有シート経由）。
-  // iOS等: 共有シートからメールを選ぶとPDFが添付される（件名は可能な範囲で反映）。
-  //        宛先は共有シートでは自動入力できないため、別途コピーUIを用意する。
-  // 非対応環境: mailto:（宛先・件名）を開き、PDFはダウンロードして手動添付。
-  async function shareForMail(file, subject) {
+  // 最近使った宛先（最大8件）
+  function loadRecents() {
+    const arr = load(LS.recentTo, []);
+    return Array.isArray(arr) ? arr : [];
+  }
+  function saveRecent(to) {
+    to = (to || "").trim();
+    if (!to) return;
+    let arr = loadRecents().filter((x) => x !== to);
+    arr.unshift(to);
+    arr = arr.slice(0, 8);
+    save(LS.recentTo, arr);
+  }
+
+  // 宛先つきでメール作成（mailto:）。宛先・件名が入る。添付は手動。
+  function composeMail(to, subject) {
+    to = (to || "").trim();
+    saveRecent(to);
+    const params = [];
+    if (subject) params.push("subject=" + encodeURIComponent(subject));
+    const href =
+      "mailto:" +
+      encodeURIComponent(to) +
+      (params.length ? "?" + params.join("&") : "");
+    window.location.href = href;
+  }
+
+  // PDFを共有・保存（共有シート）。メール添付や「"ファイル"に保存」が選べる。
+  // 非対応環境: ダウンロード保存にフォールバック。
+  async function sharePdf(file, subject, to) {
+    if (to) saveRecent(to);
     if (navigator.canShare && navigator.canShare({ files: [file] })) {
       try {
         await navigator.share({
@@ -534,91 +561,88 @@
         return;
       } catch (e) {
         if (e && e.name === "AbortError") return;
-        // それ以外は下のフォールバックへ
       }
     }
-    // フォールバック: PDFをダウンロード → mailto を開く（手動添付）
+    // フォールバック: ダウンロード保存
     const a = document.createElement("a");
     a.href = lastPdfUrl;
     a.download = file.name;
     document.body.appendChild(a);
     a.click();
     a.remove();
-
-    const params = [];
-    if (subject) params.push("subject=" + encodeURIComponent(subject));
-    const href =
-      "mailto:" +
-      encodeURIComponent(state.mail.to || "") +
-      (params.length ? "?" + params.join("&") : "");
-    setTimeout(() => {
-      window.location.href = href;
-    }, 300);
   }
 
-  // 宛先・件名のコピーUI（共有シートのメールでは宛先を自動入力できないため）
-  function buildMailInfoBox(to, subject, canShareFile) {
+  // 送付ブロック（宛先入力＋件名＋2つの送付ボタン）を組み立てる
+  function buildSendBox(file, filename, subject, canShareFile) {
     const box = document.createElement("div");
-    box.className = "mail-info";
+    box.className = "send-box";
 
-    const makeRow = (label, value) => {
-      const row = document.createElement("div");
-      row.className = "mail-info__row";
-      const l = document.createElement("span");
-      l.className = "mail-info__label";
-      l.textContent = label;
-      const v = document.createElement("span");
-      v.className = "mail-info__value";
-      v.textContent = value || "（未設定）";
-      const btn = document.createElement("button");
-      btn.type = "button";
-      btn.className = "link-btn";
-      btn.textContent = "コピー";
-      btn.disabled = !value;
-      btn.addEventListener("click", () => copyText(value, btn));
-      row.append(l, v, btn);
-      return row;
-    };
+    // 宛先（毎回入力・選択可。初期値は設定の宛先。過去の宛先を候補表示）
+    const toRow = document.createElement("div");
+    toRow.className = "send-box__field";
+    const toLabel = document.createElement("label");
+    toLabel.className = "send-box__label";
+    toLabel.textContent = "宛先";
+    toLabel.htmlFor = "send-to";
+    const toInput = document.createElement("input");
+    toInput.type = "email";
+    toInput.id = "send-to";
+    toInput.className = "field__input";
+    toInput.placeholder = "送信先メールアドレス";
+    toInput.value = state.mail.to || "";
+    toInput.setAttribute("list", "recent-to-list");
+    toInput.autocapitalize = "off";
+    toInput.autocomplete = "email";
+    const dl = document.createElement("datalist");
+    dl.id = "recent-to-list";
+    loadRecents().forEach((addr) => {
+      const opt = document.createElement("option");
+      opt.value = addr;
+      dl.appendChild(opt);
+    });
+    toRow.append(toLabel, toInput, dl);
 
-    box.appendChild(makeRow("宛先", to));
-    box.appendChild(makeRow("件名", subject));
+    // 件名（雛形＋工事名差し込み。コピー可）
+    const subjRow = document.createElement("div");
+    subjRow.className = "send-box__field";
+    const subjLabel = document.createElement("span");
+    subjLabel.className = "send-box__label";
+    subjLabel.textContent = "件名";
+    const subjVal = document.createElement("span");
+    subjVal.className = "send-box__subject";
+    subjVal.textContent = subject || "（未設定）";
+    const subjCopy = document.createElement("button");
+    subjCopy.type = "button";
+    subjCopy.className = "link-btn";
+    subjCopy.textContent = "コピー";
+    subjCopy.addEventListener("click", () => copyText(subject, subjCopy));
+    subjRow.append(subjLabel, subjVal, subjCopy);
+
+    // ボタン: 宛先つきでメール作成 / PDFを共有・保存
+    const mailBtn = document.createElement("button");
+    mailBtn.type = "button";
+    mailBtn.className = "btn btn--block";
+    mailBtn.textContent = "宛先つきでメール作成";
+    mailBtn.addEventListener("click", () => composeMail(toInput.value, subject));
+
+    const shareBtn = document.createElement("button");
+    shareBtn.type = "button";
+    shareBtn.className = "btn btn--ghost btn--block";
+    shareBtn.textContent = canShareFile
+      ? "PDFを共有・保存（“ファイル”や他のメール）"
+      : "PDFを保存（ダウンロード）";
+    shareBtn.addEventListener("click", () =>
+      sharePdf(file, subject, toInput.value)
+    );
 
     const note = document.createElement("p");
-    note.className = "mail-info__note";
-    if (canShareFile) {
-      note.textContent =
-        "送付: 上の「メールで送付」→ 共有シートでメールを選ぶとPDFが添付されます。" +
-        "宛先は自動入力されないため「コピー」で貼り付けてください。" +
-        "宛先・件名の雛形は設定画面で変更できます。";
-    } else {
-      note.textContent =
-        "送付: 「メールで送付」でPDFのダウンロードとメール作成（宛先・件名）が開きます。" +
-        "PDFは手動で添付してください。";
-    }
-    box.appendChild(note);
-    return box;
-  }
+    note.className = "send-box__note";
+    note.textContent = canShareFile
+      ? "「宛先つきでメール作成」: 入力した宛先・件名でメール作成画面が開きます（PDFは手動で添付）。／「PDFを共有・保存」: 共有シートでメールに添付したり“ファイル”に保存できます。"
+      : "「宛先つきでメール作成」: 入力した宛先・件名でメール作成が開きます。／「PDFを保存」: ダウンロード保存します。PDFは手動で添付してください。";
 
-  // PDFを端末に保存する。
-  // iOS等: 共有シート経由で「"ファイル"に保存」を選べる（ローカル保存）。
-  // 非対応環境: <a download> でダウンロード保存にフォールバック。
-  async function savePdf(file, filename) {
-    if (navigator.canShare && navigator.canShare({ files: [file] })) {
-      try {
-        await navigator.share({ files: [file], title: filename });
-        return;
-      } catch (e) {
-        // ユーザーがキャンセルした場合は何もしない
-        if (e && e.name === "AbortError") return;
-        // それ以外はダウンロードにフォールバック
-      }
-    }
-    const a = document.createElement("a");
-    a.href = lastPdfUrl;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
+    box.append(toRow, subjRow, mailBtn, shareBtn, note);
+    return box;
   }
 
   async function generatePdf() {
@@ -667,25 +691,9 @@
       openLink.className = "btn btn--block";
       openLink.textContent = "PDFを開く（プレビュー）";
 
-      // メールで送付（共有シート → メール）
+      // 送付ブロック（宛先入力＋件名＋メール作成／共有・保存）
       const subject = buildSubject();
-      const mailBtn = document.createElement("button");
-      mailBtn.type = "button";
-      mailBtn.className = "btn btn--block";
-      mailBtn.textContent = "メールで送付（PDF添付）";
-      mailBtn.addEventListener("click", () => shareForMail(file, subject));
-
-      // 保存（端末に保存）
-      const saveBtn = document.createElement("button");
-      saveBtn.type = "button";
-      saveBtn.className = "btn btn--ghost btn--block";
-      saveBtn.textContent = canShareFile
-        ? "PDFを保存（“ファイル”Appへ）"
-        : "PDFを保存（ダウンロード）";
-      saveBtn.addEventListener("click", () => savePdf(file, filename));
-
-      // メール情報（宛先・件名をワンタップでコピー）
-      const mailInfo = buildMailInfoBox(state.mail.to || "", subject, canShareFile);
+      const sendBox = buildSendBox(file, filename, subject, canShareFile);
 
       const info = document.createElement("p");
       info.className = "pdf-result__info";
@@ -693,13 +701,7 @@
       info.textContent =
         filename + "（表紙＋写真" + state.photos.length + "枚 / 全" + pages + "ページ）";
 
-      const hint = document.createElement("p");
-      hint.className = "pdf-result__info";
-      hint.textContent = canShareFile
-        ? "「保存」→ 共有シートで「“ファイル”に保存」を選ぶと端末に保存できます。"
-        : "「保存」でダウンロードフォルダに保存されます。";
-
-      els.pdfResult.append(openLink, mailBtn, saveBtn, mailInfo, info, hint);
+      els.pdfResult.append(openLink, sendBox, info);
       els.pdfResult.classList.remove("is-hidden");
     } catch (e) {
       console.error("[koji] PDF生成エラー:", e);
