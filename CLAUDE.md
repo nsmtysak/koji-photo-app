@@ -57,8 +57,9 @@ koujikanri/
 - `koji.mail` … `{ to, subject }`（メール雛形。件名は `{工事名}` を差し込み）
 - `koji.categories` … `string[]`（施工区分タグの候補）
 
-写真ごとの値（`title` 工事件名 / `place` 工事場所 / `category` 施工区分）は
-state.photos の各要素に保持。**写真と同様にセッション内のみ**で永続化しない。
+写真ごとに設定するのは **施工区分（`category`）のみ**。工事件名・工事場所は
+工事情報（`koji.jobInfo` の name/place）の共通値を全写真で使う（写真ごとには持たない）。
+`category` は state.photos の各要素に保持し、**写真と同様セッション内のみ**で永続化しない。
 
 ## 5. 留意点
 

@@ -334,19 +334,6 @@ body {
   color: #fff;
 }
 
-/* 補助ボタン行 */
-.photo-item__helpers {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-.btn--sm {
-  min-height: 36px;
-  padding: 0 12px;
-  font-size: 14px;
-}
-
 /* ===== カード / フォーム共通 ===== */
 .card {
   background: var(--surface);

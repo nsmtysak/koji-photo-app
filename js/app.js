@@ -247,9 +247,8 @@
         id: nextId++,
         file: file,
         url: URL.createObjectURL(file),
-        // 工事件名・工事場所は工事情報を初期値として引き継ぐ
-        title: state.job.name || "",
-        place: state.job.place || "",
+        // 工事件名・工事場所は工事情報の共通値を使うため写真ごとには持たない。
+        // 写真ごとに設定するのは施工区分のみ。
         category: "",
       });
     });
@@ -281,30 +280,6 @@
     renderPhotos();
   }
 
-  // 直前の写真の値（件名/場所/区分）をこの写真へ引き継ぐ
-  function inheritPrev(index) {
-    if (index <= 0) return;
-    const prev = state.photos[index - 1];
-    const cur = state.photos[index];
-    cur.title = prev.title;
-    cur.place = prev.place;
-    cur.category = prev.category;
-    renderPhotos();
-  }
-
-  // この写真の件名/場所/区分を全写真へコピー
-  function copyToAll(index) {
-    const src = state.photos[index];
-    if (!confirm("この写真の件名・場所・区分を全写真にコピーします。よろしいですか？"))
-      return;
-    state.photos.forEach((p) => {
-      p.title = src.title;
-      p.place = src.place;
-      p.category = src.category;
-    });
-    renderPhotos();
-  }
-
   function iconButton(label, aria, disabled) {
     const b = document.createElement("button");
     b.type = "button";
@@ -313,21 +288,6 @@
     b.setAttribute("aria-label", aria);
     b.disabled = !!disabled;
     return b;
-  }
-
-  function textField(labelText, value, onInput) {
-    const wrap = document.createElement("label");
-    wrap.className = "pfield";
-    const span = document.createElement("span");
-    span.className = "pfield__label";
-    span.textContent = labelText;
-    const input = document.createElement("input");
-    input.type = "text";
-    input.className = "pfield__input";
-    input.value = value || "";
-    input.addEventListener("input", () => onInput(input.value));
-    wrap.append(span, input);
-    return { wrap, input };
   }
 
   function createRow(photo, index, total) {
@@ -362,16 +322,9 @@
 
     head.append(num, thumb, ctrls);
 
-    /* --- 下段: 件名 / 場所 / 区分 --- */
+    /* --- 下段: 施工区分のみ（件名・場所は工事情報の共通値を使う） --- */
     const body = document.createElement("div");
     body.className = "photo-item__body";
-
-    const title = textField("工事件名", photo.title, (v) => {
-      photo.title = v;
-    });
-    const place = textField("工事場所", photo.place, (v) => {
-      photo.place = v;
-    });
 
     // 施工区分: 自由入力 + 候補チップ
     const catWrap = document.createElement("div");
@@ -407,25 +360,7 @@
 
     catWrap.append(catLabel, catInput, chips);
 
-    /* --- 補助ボタン --- */
-    const helpers = document.createElement("div");
-    helpers.className = "photo-item__helpers";
-    const inheritBtn = document.createElement("button");
-    inheritBtn.type = "button";
-    inheritBtn.className = "btn btn--ghost btn--sm";
-    inheritBtn.textContent = "直前を引き継ぐ";
-    inheritBtn.disabled = index === 0;
-    inheritBtn.addEventListener("click", () => inheritPrev(index));
-
-    const copyBtn = document.createElement("button");
-    copyBtn.type = "button";
-    copyBtn.className = "btn btn--ghost btn--sm";
-    copyBtn.textContent = "全写真にコピー";
-    copyBtn.addEventListener("click", () => copyToAll(index));
-
-    helpers.append(inheritBtn, copyBtn);
-
-    body.append(title.wrap, place.wrap, catWrap, helpers);
+    body.append(catWrap);
     li.append(head, body);
     return li;
   }
