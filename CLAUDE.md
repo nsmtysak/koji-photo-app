@@ -38,7 +38,7 @@ koujikanri/
 │       ├── pdf-lib.min.js        # ローカル同梱（オフライン対応）
 │       └── fontkit.umd.min.js    # ローカル同梱
 ├── fonts/
-│   └── NotoSansJP-Regular.otf    # 日本語フォント（CFF/OpenType、サブセット埋め込み）
+│   └── MPLUS1p-Regular.ttf       # 日本語フォント（TrueType/glyf、全埋め込み）
 └── icons/
     ├── icon-192.png    # プレースホルダ（要差し替え）
     └── icon-512.png    # プレースホルダ（要差し替え）
@@ -46,7 +46,10 @@ koujikanri/
 
 PDF: `window.KojiPDF.generate({ job, company, photos, onProgress })` → Uint8Array。
 写真は canvas 経由で JPEG 化（HEIC/EXIF回転/サイズ最適化, 最大1600px）してから `embedJpg`。
-日本語は Noto Sans JP を `embedFont(bytes, { subset:true })` で埋め込み（CFFサブセット動作確認済み）。
+日本語は **M PLUS 1p（TrueType/glyf）を `embedFont(bytes, { subset:false })` で全埋め込み**。
+- 重要: pdf-lib(1.17.1)+@pdf-lib/fontkit(1.1.1) の**サブセット機能はグリフ欠落のバグ**があり、
+  さらに CFF/OTTO フォント（Noto Sans JP 等）はサブセット埋め込みが壊れて iPhone で文字化けする。
+  そのため TrueType フォント＋`subset:false`（全埋め込み, 約1MB/PDF）で確実に埋め込む。
 ファイル名: `工事写真帳_{工事名}_{YYYY-MM-DD}.pdf`。
 
 ## 4. 段階的開発計画（Phase 0〜4）
