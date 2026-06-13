@@ -394,6 +394,41 @@ body {
   word-break: break-all;
 }
 
+/* メール情報（宛先・件名のコピー） */
+.mail-info {
+  margin-top: 4px;
+  padding: 10px 12px;
+  background: var(--bg);
+  border-radius: 8px;
+}
+
+.mail-info__row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+}
+
+.mail-info__label {
+  flex: 0 0 auto;
+  width: 40px;
+  font-size: 12px;
+  color: var(--text-sub);
+}
+
+.mail-info__value {
+  flex: 1;
+  font-size: 13px;
+  word-break: break-all;
+}
+
+.mail-info__note {
+  margin: 6px 0 0;
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--text-sub);
+}
+
 /* ===== カード / フォーム共通 ===== */
 .card {
   background: var(--surface);

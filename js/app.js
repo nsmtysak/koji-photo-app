@@ -121,14 +121,17 @@
     els.jobOrderNo.addEventListener("input", () => {
       state.job.orderNo = els.jobOrderNo.value;
       save(LS.job, state.job);
+      updateClearBtn();
     });
     els.jobName.addEventListener("input", () => {
       state.job.name = els.jobName.value;
       save(LS.job, state.job);
+      updateClearBtn();
     });
     els.jobPlace.addEventListener("input", () => {
       state.job.place = els.jobPlace.value;
       save(LS.job, state.job);
+      updateClearBtn();
     });
   }
 
@@ -297,12 +300,37 @@
     renderPhotos();
   }
 
+  // 最初からやり直す: 写真・工事情報・PDF結果をリセット。
+  // 設定（自社情報・メール雛形・区分タグ）は残す。
   function clearAll() {
-    if (state.photos.length === 0) return;
-    if (!confirm("選択した写真と入力内容をすべて取り消します。よろしいですか？"))
+    const hasJob = state.job.orderNo || state.job.name || state.job.place;
+    if (state.photos.length === 0 && !hasJob) return;
+    if (
+      !confirm(
+        "選択した写真と工事情報をリセットします。\n（設定・区分タグ・自社情報・メール雛形は残ります）\nよろしいですか？"
+      )
+    )
       return;
+
+    // 写真
     state.photos.forEach((p) => URL.revokeObjectURL(p.url));
     state.photos = [];
+
+    // 工事情報
+    state.job = { orderNo: "", name: "", place: "" };
+    save(LS.job, state.job);
+    els.jobOrderNo.value = "";
+    els.jobName.value = "";
+    els.jobPlace.value = "";
+
+    // PDF結果
+    if (lastPdfUrl) {
+      URL.revokeObjectURL(lastPdfUrl);
+      lastPdfUrl = null;
+    }
+    els.pdfResult.innerHTML = "";
+    els.pdfResult.classList.add("is-hidden");
+
     renderPhotos();
   }
 
@@ -431,6 +459,15 @@
     return li;
   }
 
+  // 「最初からやり直す」ボタンの表示制御（写真または工事情報があれば表示）
+  function updateClearBtn() {
+    const hasJob = !!(state.job.orderNo || state.job.name || state.job.place);
+    els.clearAll.classList.toggle(
+      "is-hidden",
+      state.photos.length === 0 && !hasJob
+    );
+  }
+
   function syncChips(chipsEl, value) {
     Array.from(chipsEl.children).forEach((chip) => {
       chip.classList.toggle("is-active", chip.textContent === value);
@@ -442,8 +479,8 @@
     els.count.textContent =
       total === 0 ? "写真は未選択です" : total + " 枚を選択中";
     els.empty.classList.toggle("is-hidden", total > 0);
-    els.clearAll.classList.toggle("is-hidden", total === 0);
     els.pdfSection.classList.toggle("is-hidden", total === 0);
+    updateClearBtn();
 
     els.list.innerHTML = "";
     const frag = document.createDocumentFragment();
@@ -460,6 +497,106 @@
 
   function sanitizeFileName(s) {
     return (s || "工事").replace(/[\\/:*?"<>|\s]+/g, "_").slice(0, 40);
+  }
+
+  // 件名の雛形に工事名を差し込む
+  function buildSubject() {
+    const tmpl = state.mail.subject || "工事写真帳送付の件";
+    return tmpl.replace(/\{工事名\}/g, state.job.name || "");
+  }
+
+  // テキストをクリップボードへコピー（失敗時はprompt）
+  async function copyText(text, btn) {
+    try {
+      await navigator.clipboard.writeText(text);
+      if (btn) {
+        const org = btn.textContent;
+        btn.textContent = "コピー済み";
+        setTimeout(() => (btn.textContent = org), 1200);
+      }
+    } catch (e) {
+      window.prompt("コピーしてください", text);
+    }
+  }
+
+  // PDFをメールで送付（共有シート経由）。
+  // iOS等: 共有シートからメールを選ぶとPDFが添付される（件名は可能な範囲で反映）。
+  //        宛先は共有シートでは自動入力できないため、別途コピーUIを用意する。
+  // 非対応環境: mailto:（宛先・件名）を開き、PDFはダウンロードして手動添付。
+  async function shareForMail(file, subject) {
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      try {
+        await navigator.share({
+          files: [file],
+          title: subject || "工事写真帳",
+          text: subject || "",
+        });
+        return;
+      } catch (e) {
+        if (e && e.name === "AbortError") return;
+        // それ以外は下のフォールバックへ
+      }
+    }
+    // フォールバック: PDFをダウンロード → mailto を開く（手動添付）
+    const a = document.createElement("a");
+    a.href = lastPdfUrl;
+    a.download = file.name;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+
+    const params = [];
+    if (subject) params.push("subject=" + encodeURIComponent(subject));
+    const href =
+      "mailto:" +
+      encodeURIComponent(state.mail.to || "") +
+      (params.length ? "?" + params.join("&") : "");
+    setTimeout(() => {
+      window.location.href = href;
+    }, 300);
+  }
+
+  // 宛先・件名のコピーUI（共有シートのメールでは宛先を自動入力できないため）
+  function buildMailInfoBox(to, subject, canShareFile) {
+    const box = document.createElement("div");
+    box.className = "mail-info";
+
+    const makeRow = (label, value) => {
+      const row = document.createElement("div");
+      row.className = "mail-info__row";
+      const l = document.createElement("span");
+      l.className = "mail-info__label";
+      l.textContent = label;
+      const v = document.createElement("span");
+      v.className = "mail-info__value";
+      v.textContent = value || "（未設定）";
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "link-btn";
+      btn.textContent = "コピー";
+      btn.disabled = !value;
+      btn.addEventListener("click", () => copyText(value, btn));
+      row.append(l, v, btn);
+      return row;
+    };
+
+    box.appendChild(makeRow("宛先", to));
+    box.appendChild(makeRow("件名", subject));
+
+    const note = document.createElement("p");
+    note.className = "mail-info__note";
+    if (canShareFile) {
+      note.textContent =
+        "送付: 上の「メールで送付」→ 共有シートでメールを選ぶとPDFが添付されます。" +
+        "宛先は自動入力されないため「コピー」で貼り付けてください。" +
+        "宛先・件名の雛形は設定画面で変更できます。";
+    } else {
+      note.textContent =
+        "送付: 「メールで送付」でPDFのダウンロードとメール作成（宛先・件名）が開きます。" +
+        "PDFは手動で添付してください。";
+    }
+    box.appendChild(note);
+    return box;
   }
 
   // PDFを端末に保存する。
@@ -530,6 +667,14 @@
       openLink.className = "btn btn--block";
       openLink.textContent = "PDFを開く（プレビュー）";
 
+      // メールで送付（共有シート → メール）
+      const subject = buildSubject();
+      const mailBtn = document.createElement("button");
+      mailBtn.type = "button";
+      mailBtn.className = "btn btn--block";
+      mailBtn.textContent = "メールで送付（PDF添付）";
+      mailBtn.addEventListener("click", () => shareForMail(file, subject));
+
       // 保存（端末に保存）
       const saveBtn = document.createElement("button");
       saveBtn.type = "button";
@@ -538,6 +683,9 @@
         ? "PDFを保存（“ファイル”Appへ）"
         : "PDFを保存（ダウンロード）";
       saveBtn.addEventListener("click", () => savePdf(file, filename));
+
+      // メール情報（宛先・件名をワンタップでコピー）
+      const mailInfo = buildMailInfoBox(state.mail.to || "", subject, canShareFile);
 
       const info = document.createElement("p");
       info.className = "pdf-result__info";
@@ -551,7 +699,7 @@
         ? "「保存」→ 共有シートで「“ファイル”に保存」を選ぶと端末に保存できます。"
         : "「保存」でダウンロードフォルダに保存されます。";
 
-      els.pdfResult.append(openLink, saveBtn, info, hint);
+      els.pdfResult.append(openLink, mailBtn, saveBtn, mailInfo, info, hint);
       els.pdfResult.classList.remove("is-hidden");
     } catch (e) {
       console.error("[koji] PDF生成エラー:", e);
@@ -575,5 +723,5 @@
   initJobInfo();
   initSettings();
   renderPhotos();
-  console.log("[koji] 工事写真台帳 起動（Phase 3）");
+  console.log("[koji] 工事写真台帳 起動（Phase 4）");
 })();
