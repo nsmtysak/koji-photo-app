@@ -1,10 +1,13 @@
 /* ===========================================================
    工事写真台帳 — Service Worker
-   最小オフラインキャッシュ（App Shell）
-   キャッシュ名のバージョンを上げると古いキャッシュを破棄する。
+   方針: ネットワーク優先（network-first）。
+   - オンライン時は常に最新を取得 → 取得分をキャッシュへ更新。
+   - オフライン時のみキャッシュから配信（最低限のオフライン対応）。
+   ※ アプリ更新がすぐ反映されるよう、開発中は network-first にしている。
+   ※ キャッシュを作り直したい時は CACHE_NAME のバージョンを上げる。
    =========================================================== */
 
-const CACHE_NAME = "koji-photo-app-v1";
+const CACHE_NAME = "koji-photo-app-v2";
 
 const APP_SHELL = [
   "./",
@@ -16,53 +19,51 @@ const APP_SHELL = [
   "./icons/icon-512.png",
 ];
 
-// インストール: App Shell を事前キャッシュ
+// インストール: App Shell を事前キャッシュ（オフライン初回用）
 self.addEventListener("install", (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => cache.addAll(APP_SHELL))
   );
-  self.skipWaiting();
+  self.skipWaiting(); // 新SWを即時待機解除
 });
 
-// 有効化: 古いキャッシュを削除
+// 有効化: 古いキャッシュを削除し、すぐ全クライアントを制御下に置く
 self.addEventListener("activate", (event) => {
   event.waitUntil(
-    caches.keys().then((keys) =>
-      Promise.all(
-        keys
-          .filter((key) => key !== CACHE_NAME)
-          .map((key) => caches.delete(key))
+    caches
+      .keys()
+      .then((keys) =>
+        Promise.all(
+          keys
+            .filter((key) => key !== CACHE_NAME)
+            .map((key) => caches.delete(key))
+        )
       )
-    )
+      .then(() => self.clients.claim())
   );
-  self.clients.claim();
 });
 
-// 取得: キャッシュ優先、無ければネットワーク（取得分は追記キャッシュ）
+// 取得: ネットワーク優先、失敗時のみキャッシュ
 self.addEventListener("fetch", (event) => {
   const { request } = event;
 
-  // GET 以外はそのまま通す
+  // GET 以外・別オリジンはそのまま通す
   if (request.method !== "GET") return;
+  if (new URL(request.url).origin !== self.location.origin) return;
 
   event.respondWith(
-    caches.match(request).then((cached) => {
-      if (cached) return cached;
-
-      return fetch(request)
-        .then((response) => {
-          // 同一オリジンの正常応答のみキャッシュ
-          if (
-            response &&
-            response.status === 200 &&
-            response.type === "basic"
-          ) {
-            const copy = response.clone();
-            caches.open(CACHE_NAME).then((cache) => cache.put(request, copy));
-          }
-          return response;
-        })
-        .catch(() => cached);
-    })
+    fetch(request)
+      .then((response) => {
+        // 正常応答ならキャッシュを更新（次のオフライン用）
+        if (response && response.status === 200 && response.type === "basic") {
+          const copy = response.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(request, copy));
+        }
+        return response;
+      })
+      .catch(() =>
+        // オフライン時: キャッシュ → 無ければ index.html（ナビゲーション用）
+        caches.match(request).then((cached) => cached || caches.match("./index.html"))
+      )
   );
 });
