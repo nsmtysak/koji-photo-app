@@ -22,9 +22,35 @@
 <body>
   <header class="app-header">
     <h1 class="app-title">工事写真台帳</h1>
+    <button id="open-settings" class="header-btn" type="button" aria-label="設定">
+      設定
+    </button>
   </header>
 
   <main id="app" class="app-main">
+    <!-- 工事情報（表紙・写真テキストの共通値） -->
+    <section class="card" aria-label="工事情報">
+      <h2 class="card__title">工事情報</h2>
+      <div class="field">
+        <label class="field__label" for="job-orderNo">注文番号</label>
+        <input id="job-orderNo" class="field__input" type="text" inputmode="text"
+          placeholder="例: 12345" />
+      </div>
+      <div class="field">
+        <label class="field__label" for="job-name">工事名</label>
+        <input id="job-name" class="field__input" type="text"
+          placeholder="例: ○○ビル空調更新工事" />
+      </div>
+      <div class="field">
+        <label class="field__label" for="job-place">工事場所</label>
+        <input id="job-place" class="field__input" type="text"
+          placeholder="例: 神戸市西区○○" />
+      </div>
+      <p class="card__note">
+        工事名・工事場所は、新しく選んだ写真の初期値として引き継がれます。
+      </p>
+    </section>
+
     <!-- 写真選択バー -->
     <section class="picker" aria-label="写真の選択">
       <label class="btn btn--block" for="photo-input">
@@ -57,6 +83,78 @@
       すべての写真を取り消す
     </button>
   </main>
+
+  <!-- ===== 設定画面（オーバーレイ） ===== -->
+  <div id="settings" class="overlay is-hidden" role="dialog" aria-modal="true"
+    aria-label="設定">
+    <header class="overlay__header">
+      <button id="close-settings" class="header-btn header-btn--left" type="button">
+        閉じる
+      </button>
+      <h2 class="overlay__title">設定</h2>
+      <span class="header-btn header-btn--spacer" aria-hidden="true"></span>
+    </header>
+
+    <div class="overlay__body">
+      <!-- 自社情報 -->
+      <section class="card" aria-label="自社情報">
+        <h3 class="card__title">自社情報（表紙下部に表示）</h3>
+        <div class="field">
+          <label class="field__label" for="co-name">会社名</label>
+          <input id="co-name" class="field__input" type="text" />
+        </div>
+        <div class="field">
+          <label class="field__label" for="co-postal">郵便番号</label>
+          <input id="co-postal" class="field__input" type="text" inputmode="numeric" />
+        </div>
+        <div class="field">
+          <label class="field__label" for="co-address">住所</label>
+          <input id="co-address" class="field__input" type="text" />
+        </div>
+        <div class="field">
+          <label class="field__label" for="co-tel">TEL</label>
+          <input id="co-tel" class="field__input" type="text" inputmode="tel" />
+        </div>
+        <div class="field">
+          <label class="field__label" for="co-fax">FAX</label>
+          <input id="co-fax" class="field__input" type="text" inputmode="tel" />
+        </div>
+      </section>
+
+      <!-- メール雛形 -->
+      <section class="card" aria-label="メール雛形">
+        <h3 class="card__title">メール雛形（Phase 4 で使用）</h3>
+        <div class="field">
+          <label class="field__label" for="mail-to">送信宛先（元請けのメール）</label>
+          <input id="mail-to" class="field__input" type="email" inputmode="email"
+            placeholder="例: genba@example.co.jp" />
+        </div>
+        <div class="field">
+          <label class="field__label" for="mail-subject">件名の雛形</label>
+          <input id="mail-subject" class="field__input" type="text"
+            placeholder="例: 工事写真帳送付の件（{工事名}）" />
+          <p class="field__hint"><code>{工事名}</code> は工事名に置き換わります。</p>
+        </div>
+      </section>
+
+      <!-- 施工区分タグ -->
+      <section class="card" aria-label="施工区分タグ">
+        <h3 class="card__title">施工区分タグ</h3>
+        <p class="card__note">写真ごとの区分でワンタップ選択できる候補です。</p>
+        <ul id="cat-list" class="cat-list"></ul>
+        <div class="cat-add">
+          <input id="cat-new" class="field__input" type="text"
+            placeholder="区分を追加（例: 配管）" />
+          <button id="cat-add-btn" class="btn" type="button">追加</button>
+        </div>
+        <button id="cat-reset" class="btn btn--ghost btn--block" type="button">
+          初期の区分に戻す
+        </button>
+      </section>
+
+      <p class="overlay__saved">入力内容は自動的に保存されます。</p>
+    </div>
+  </div>
 
   <script src="js/app.js"></script>
 </body>

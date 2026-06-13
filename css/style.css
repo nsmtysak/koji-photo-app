@@ -61,6 +61,21 @@ body {
   letter-spacing: 0.2px;
 }
 
+/* ヘッダー右上の設定ボタンなど */
+.header-btn {
+  position: absolute;
+  top: 50%;
+  right: 12px;
+  transform: translateY(calc(-50% + var(--safe-top) / 2));
+  min-height: 34px;
+  padding: 0 8px;
+  border: none;
+  background: transparent;
+  color: var(--accent);
+  font-size: 16px;
+  cursor: pointer;
+}
+
 /* ===== メイン ===== */
 .app-main {
   padding: 16px;
@@ -188,12 +203,15 @@ body {
 }
 
 .photo-item {
-  display: flex;
-  align-items: center;
-  gap: 12px;
   background: var(--surface);
   border-radius: var(--radius);
   padding: 10px;
+}
+
+.photo-item__head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
 }
 
 .photo-item__num {
@@ -252,4 +270,245 @@ body {
 
 .photo-item__del {
   color: #ff3b30;          /* 削除は赤系 */
+}
+
+/* ===== 写真の下段（件名/場所/区分） ===== */
+.photo-item__body {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 0.5px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.pfield {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.pfield__label {
+  font-size: 12px;
+  color: var(--text-sub);
+}
+
+.pfield__input {
+  width: 100%;
+  min-height: 40px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #fff;
+  font-size: 16px;        /* iOSの自動ズーム防止に16px以上 */
+  color: var(--text);
+}
+
+.pfield__input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+/* 区分の候補チップ */
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.chip {
+  min-height: 32px;
+  padding: 0 12px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: #fff;
+  color: var(--text);
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.chip.is-active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+/* 補助ボタン行 */
+.photo-item__helpers {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.btn--sm {
+  min-height: 36px;
+  padding: 0 12px;
+  font-size: 14px;
+}
+
+/* ===== カード / フォーム共通 ===== */
+.card {
+  background: var(--surface);
+  border-radius: var(--radius);
+  padding: 16px;
+  margin-bottom: 16px;
+}
+
+.card__title {
+  margin: 0 0 12px;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.card__note {
+  margin: 8px 0 0;
+  font-size: 12px;
+  color: var(--text-sub);
+}
+
+.field {
+  margin-bottom: 12px;
+}
+
+.field:last-child {
+  margin-bottom: 0;
+}
+
+.field__label {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 13px;
+  color: var(--text-sub);
+}
+
+.field__input {
+  width: 100%;
+  min-height: 44px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #fff;
+  font-size: 16px;        /* iOSの自動ズーム防止 */
+  color: var(--text);
+}
+
+.field__input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.field__hint {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: var(--text-sub);
+}
+
+.field__hint code,
+code {
+  background: var(--bg);
+  padding: 1px 5px;
+  border-radius: 4px;
+  font-size: 0.92em;
+}
+
+/* ===== 設定オーバーレイ ===== */
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  background: var(--bg);
+  display: flex;
+  flex-direction: column;
+}
+
+.overlay__header {
+  position: sticky;
+  top: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: calc(var(--safe-top) + 12px) 8px 12px;
+  background: rgba(255, 255, 255, 0.9);
+  backdrop-filter: saturate(180%) blur(20px);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  border-bottom: 0.5px solid var(--border);
+}
+
+.overlay__title {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 600;
+}
+
+.header-btn--left {
+  position: static;
+  transform: none;
+}
+
+.header-btn--spacer {
+  position: static;
+  transform: none;
+  width: 56px;            /* 「閉じる」と対称にしてタイトルを中央寄せ */
+}
+
+.overlay__body {
+  flex: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 16px;
+  padding-bottom: calc(var(--safe-bottom) + 24px);
+  max-width: 720px;
+  width: 100%;
+  margin: 0 auto;
+}
+
+.overlay__saved {
+  text-align: center;
+  font-size: 12px;
+  color: var(--text-sub);
+  margin: 4px 0 0;
+}
+
+body.no-scroll {
+  overflow: hidden;
+}
+
+/* ===== 区分タグ管理 ===== */
+.cat-list {
+  list-style: none;
+  margin: 0 0 12px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.cat-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.cat-item__name {
+  flex: 1;
+  text-align: left;
+  min-height: 44px;
+  padding: 0 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--text);
+  font-size: 16px;
+  cursor: pointer;
+}
+
+.cat-add {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.cat-add .field__input {
+  flex: 1;
 }
