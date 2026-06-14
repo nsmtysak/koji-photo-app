@@ -98,14 +98,14 @@
     "完了",
   ];
   const DEFAULT_COMPANY = {
-    name: "（株）安福冷暖",
+    name: "株式会社安福冷暖",
     postal: "651-2411",
     address: "神戸市西区上新地1丁目1-6",
     tel: "(078)967-3855",
     fax: "(078)967-3856",
   };
   const DEFAULT_MAIL = {
-    subject: "工事写真帳送付の件（{工事名}）",
+    subject: "工事写真帳送付（{工事名}）",
   };
   // 本文の定型句（複数登録・選択式。選択中のものを本文に挿入）
   const DEFAULT_BODY =
@@ -151,6 +151,24 @@
         save(LS.cats, state.cats);
       }
       localStorage.setItem("koji.mig.buzai", "1");
+    } catch (e) {
+      /* noop */
+    }
+  })();
+
+  // 一度だけ: 旧既定の会社名/件名を新既定へ更新（ユーザーが未変更の場合のみ）
+  (function migrateDefaultsV2() {
+    try {
+      if (localStorage.getItem("koji.mig.defaults2")) return;
+      if (state.company.name === "（株）安福冷暖") {
+        state.company.name = "株式会社安福冷暖";
+        save(LS.company, state.company);
+      }
+      if (state.mail.subject === "工事写真帳送付の件（{工事名}）") {
+        state.mail.subject = "工事写真帳送付（{工事名}）";
+        save(LS.mail, state.mail);
+      }
+      localStorage.setItem("koji.mig.defaults2", "1");
     } catch (e) {
       /* noop */
     }
