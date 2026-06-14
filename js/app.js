@@ -645,8 +645,15 @@
     });
     // 初めて写真を入れたら工事情報を折りたたむ
     if (wasEmpty) jobInfoCollapsed = true;
+    markPdfStale(); // 写真を足したら要再生成 → 生成ボタンを青に戻す
     saveSession();
     renderPhotos();
+  }
+
+  // 生成済みPDFが古くなった（写真変更）→ 生成ボタンを青背景・白文字に戻す
+  function markPdfStale() {
+    els.generatePdf.classList.remove("btn--ghost");
+    els.generatePdfTop.classList.remove("btn--ghost");
   }
 
   function move(index, dir) {
@@ -654,6 +661,7 @@
     if (target < 0 || target >= state.photos.length) return;
     const arr = state.photos;
     [arr[index], arr[target]] = [arr[target], arr[index]];
+    markPdfStale();
     saveSession();
     renderPhotos();
   }
@@ -664,6 +672,7 @@
     URL.revokeObjectURL(state.photos[idx].url);
     state.photos.splice(idx, 1);
     IDB.del(id);
+    markPdfStale();
     saveSession();
     renderPhotos();
   }

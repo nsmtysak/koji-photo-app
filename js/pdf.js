@@ -278,6 +278,33 @@ window.KojiPDF = (function () {
     drawFields(page, font, cellLeft, imgBoxY - 6, cellW, texts, 9, 11, true);
   }
 
+  // 件名/場所 と 区分/日付 を 2行×2列で描画（2枚レイアウト用）。
+  function drawFields2x2(page, font, x, topY, width, texts, labelSize, valSize) {
+    const gap = 16;
+    const halfW = (width - gap) / 2;
+    const x2 = x + halfW + gap;
+    const y1a = drawBlock(page, font, "工事件名", texts.title, x, topY, halfW, labelSize, valSize);
+    const y1b = drawBlock(page, font, "工事場所", texts.place, x2, topY, halfW, labelSize, valSize);
+    const ty = Math.min(y1a, y1b) - 8;
+    drawBlock(page, font, "施工区分", texts.category, x, ty, halfW, labelSize, valSize);
+    drawBlock(page, font, "撮影日", texts.date, x2, ty, halfW, labelSize, valSize);
+  }
+
+  /* ---------- 全幅レイアウト（2枚/ページ）: 上=写真(全幅)、下=2段の文言 ---------- */
+  function drawPhotoWide(page, font, image, texts, slotTop, slotH) {
+    const pad = 10;
+    const innerTop = slotTop - pad;
+    const innerH = slotH - pad * 2;
+    const x = MARGIN;
+    const w = W - MARGIN * 2; // 枠は幅いっぱい
+    const textH = 80; // 2段ぶん
+    const imgBoxH = innerH - textH;
+    const imgBoxY = innerTop - imgBoxH;
+
+    drawImageBox(page, image, x, imgBoxY, w, imgBoxH);
+    drawFields2x2(page, font, x, imgBoxY - 8, w, texts, 10, 12);
+  }
+
   /* ---------- メイン ---------- */
   async function generate(data) {
     const job = data.job || {};
@@ -343,7 +370,13 @@ window.KojiPDF = (function () {
         const cellLeft = MARGIN + col * (cellW + gapX);
         const cellTop = contentTop - row * (cellH + gapY);
         drawPhotoCell(page, font, image, texts, cellLeft, cellTop, cellW, cellH);
+      } else if (perPage === 2) {
+        // 全幅: 上=写真(幅いっぱい)、下=2段の文言
+        const slotH = contentH / 2;
+        const slotTop = contentTop - idx * slotH;
+        drawPhotoWide(page, font, image, texts, slotTop, slotH);
       } else {
+        // 3枚: 左=写真、右=文言
         const slotH = contentH / perPage;
         const slotTop = contentTop - idx * slotH;
         drawPhotoSlot(page, font, image, texts, slotTop, slotH);
