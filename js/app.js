@@ -158,6 +158,8 @@
 
   let nextId = 1;
   let catEditMode = false; // 写真側の区分チップが「候補を編集」モードか
+  let jobInfoCollapsed = false; // 工事情報を折りたたんでいるか
+  let settingsSnapshot = null; // 設定オープン時のスナップショット（キャンセル復元用）
 
   /* ---------- DOM 参照 ---------- */
   const $ = (id) => document.getElementById(id);
@@ -166,18 +168,25 @@
     jobOrderNo: $("job-orderNo"),
     jobName: $("job-name"),
     jobPlace: $("job-place"),
+    jobToggle: $("job-toggle"),
+    jobBody: $("job-body"),
+    jobSummary: $("job-summary"),
     // 写真
     input: $("photo-input"),
     list: $("photo-list"),
     count: $("photo-count"),
     empty: $("empty-state"),
+    photoAddBottom: $("photo-add-bottom"),
     clearAll: $("clear-all"),
     generatePdf: $("generate-pdf"),
+    generatePdfTop: $("generate-pdf-top"),
     openPdf: $("open-pdf"),
     pdfResult: $("pdf-result"),
     // 設定
     openSettings: $("open-settings"),
-    closeSettings: $("close-settings"),
+    openSettingsBottom: $("open-settings-bottom"),
+    settingsSave: $("settings-save"),
+    settingsCancel: $("settings-cancel"),
     settings: $("settings"),
     coName: $("co-name"),
     coPostal: $("co-postal"),
@@ -217,6 +226,36 @@
       save(LS.job, state.job);
       updateClearBtn();
     });
+
+    els.jobToggle.addEventListener("click", () => {
+      jobInfoCollapsed = !jobInfoCollapsed;
+      renderJobInfo();
+    });
+    renderJobInfo();
+  }
+
+  // 工事情報の折りたたみ表示
+  function renderJobInfo() {
+    const hasPhotos = state.photos.length > 0;
+    // 写真が無いときは常に展開（入力できるように）
+    const collapsed = hasPhotos && jobInfoCollapsed;
+
+    els.jobBody.classList.toggle("is-hidden", collapsed);
+    els.jobSummary.classList.toggle("is-hidden", !collapsed);
+    // トグルは写真がある時だけ表示
+    els.jobToggle.classList.toggle("is-hidden", !hasPhotos);
+    els.jobToggle.textContent = collapsed ? "編集" : "閉じる";
+
+    if (collapsed) {
+      const parts = [
+        state.job.orderNo && "No." + state.job.orderNo,
+        state.job.name,
+        state.job.place,
+      ].filter(Boolean);
+      els.jobSummary.textContent = parts.length
+        ? parts.join(" ／ ")
+        : "（未入力）";
+    }
   }
 
   /* ===========================================================
@@ -304,6 +343,59 @@
     });
   }
 
+  // 設定を開く: 現在値をスナップショット（キャンセル復元用）
+  function openSettings() {
+    settingsSnapshot = {
+      company: Object.assign({}, state.company),
+      mail: Object.assign({}, state.mail),
+      bodyTpl: {
+        list: state.bodyTpl.list.slice(),
+        selected: state.bodyTpl.selected,
+      },
+      cats: state.cats.slice(),
+      perPage: state.perPage,
+    };
+    els.settings.classList.remove("is-hidden");
+    document.body.classList.add("no-scroll");
+  }
+
+  // 設定を閉じる。cancel=true ならスナップショットに復元（保存しない）。
+  function closeSettings(cancel) {
+    if (cancel && settingsSnapshot) {
+      const s = settingsSnapshot;
+      // 入力系（オブジェクトは bindText が参照を保持しているため中身を上書き）
+      Object.assign(state.company, s.company);
+      Object.assign(state.mail, s.mail);
+      save(LS.company, state.company);
+      save(LS.mail, state.mail);
+      // 配列系は中身を入れ替え
+      state.cats.length = 0;
+      s.cats.forEach((c) => state.cats.push(c));
+      save(LS.cats, state.cats);
+      state.bodyTpl.list.length = 0;
+      s.bodyTpl.list.forEach((t) => state.bodyTpl.list.push(t));
+      state.bodyTpl.selected = s.bodyTpl.selected;
+      saveBodyTpl();
+      state.perPage = s.perPage;
+      save(LS.perPage, state.perPage);
+
+      // 画面に反映し直す
+      els.coName.value = state.company.name || "";
+      els.coPostal.value = state.company.postal || "";
+      els.coAddress.value = state.company.address || "";
+      els.coTel.value = state.company.tel || "";
+      els.coFax.value = state.company.fax || "";
+      els.mailSubject.value = state.mail.subject || "";
+      renderCats();
+      renderBodyTpls();
+      syncPerPage();
+      renderPhotos();
+    }
+    settingsSnapshot = null;
+    els.settings.classList.add("is-hidden");
+    document.body.classList.remove("no-scroll");
+  }
+
   function initSettings() {
     bindText(els.coName, state.company, "name", LS.company);
     bindText(els.coPostal, state.company, "postal", LS.company);
@@ -315,14 +407,10 @@
     els.bodyTplAdd.addEventListener("click", addBodyTpl);
     renderBodyTpls();
 
-    els.openSettings.addEventListener("click", () => {
-      els.settings.classList.remove("is-hidden");
-      document.body.classList.add("no-scroll");
-    });
-    els.closeSettings.addEventListener("click", () => {
-      els.settings.classList.add("is-hidden");
-      document.body.classList.remove("no-scroll");
-    });
+    els.openSettings.addEventListener("click", openSettings);
+    els.openSettingsBottom.addEventListener("click", openSettings);
+    els.settingsSave.addEventListener("click", () => closeSettings(false));
+    els.settingsCancel.addEventListener("click", () => closeSettings(true));
 
     els.catAddBtn.addEventListener("click", addCategory);
     els.catNew.addEventListener("keydown", (e) => {
@@ -512,6 +600,7 @@
     if (restored.length === 0) return;
     state.photos = restored;
     nextId = Math.max.apply(null, restored.map((p) => p.id)) + 1;
+    jobInfoCollapsed = true; // 復元時は工事情報を折りたたむ
     renderPhotos();
   }
 
@@ -520,6 +609,8 @@
       f.type.startsWith("image/")
     );
     if (files.length === 0) return;
+
+    const wasEmpty = state.photos.length === 0;
 
     files.forEach((file) => {
       const id = nextId++;
@@ -534,6 +625,8 @@
       });
       IDB.put(id, file); // 本体を退避
     });
+    // 初めて写真を入れたら工事情報を折りたたむ
+    if (wasEmpty) jobInfoCollapsed = true;
     saveSession();
     renderPhotos();
   }
@@ -581,6 +674,7 @@
     els.jobOrderNo.value = "";
     els.jobName.value = "";
     els.jobPlace.value = "";
+    jobInfoCollapsed = false; // 工事情報を展開状態に戻す
 
     // PDF結果
     if (lastPdfUrl) {
@@ -594,8 +688,10 @@
 
     // 「PDFを生成」ボタンを元の青背景に戻す
     els.generatePdf.classList.remove("btn--ghost");
+    els.generatePdfTop.classList.remove("btn--ghost");
 
     renderPhotos();
+    renderJobInfo();
   }
 
   function iconButton(label, aria, disabled) {
@@ -744,8 +840,13 @@
     const total = state.photos.length;
     els.count.textContent = total === 0 ? "" : total + " 枚を選択中";
     els.empty.classList.toggle("is-hidden", total > 0);
-    els.generatePdf.classList.toggle("is-hidden", total === 0);
+    // 生成ボタン（上下とも）: 写真が無ければグレーアウト
+    els.generatePdf.disabled = total === 0;
+    els.generatePdfTop.disabled = total === 0;
+    // 下段の「写真を選択／追加」は写真がある時だけ表示
+    els.photoAddBottom.classList.toggle("is-hidden", total === 0);
     updateClearBtn();
+    renderJobInfo();
 
     els.list.innerHTML = "";
     const frag = document.createDocumentFragment();
@@ -896,9 +997,10 @@
       previewWin = null;
     }
 
-    els.generatePdf.disabled = true;
-    const orgLabel = els.generatePdf.textContent;
-    const setLabel = (t) => (els.generatePdf.textContent = t);
+    const genBtns = [els.generatePdf, els.generatePdfTop];
+    genBtns.forEach((b) => (b.disabled = true));
+    const orgLabel = "PDFを生成";
+    const setLabel = (t) => genBtns.forEach((b) => (b.textContent = t));
     setLabel("生成中…");
     els.pdfResult.classList.add("is-hidden");
 
@@ -952,15 +1054,15 @@
         els.openPdf.click();
       }
 
-      // 一度生成したら「PDFを生成」ボタンを白背景・青文字に
-      els.generatePdf.classList.add("btn--ghost");
+      // 一度生成したら「PDFを生成」ボタン（上下とも）を白背景・青文字に
+      genBtns.forEach((b) => b.classList.add("btn--ghost"));
     } catch (e) {
       console.error("[koji] PDF生成エラー:", e);
       if (previewWin && !previewWin.closed) previewWin.close();
       alert("PDFの生成に失敗しました: " + (e && e.message ? e.message : e));
     } finally {
       setLabel(orgLabel);
-      els.generatePdf.disabled = false;
+      genBtns.forEach((b) => (b.disabled = state.photos.length === 0));
     }
   }
 
@@ -973,6 +1075,7 @@
   });
   els.clearAll.addEventListener("click", clearAll);
   els.generatePdf.addEventListener("click", generatePdf);
+  els.generatePdfTop.addEventListener("click", generatePdf);
 
   initJobInfo();
   initSettings();

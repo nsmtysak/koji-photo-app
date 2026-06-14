@@ -28,43 +28,45 @@
   </header>
 
   <main id="app" class="app-main">
-    <!-- 工事情報（表紙・写真テキストの共通値） -->
+    <!-- 工事情報（写真選択後は折りたたみ） -->
     <section class="card" aria-label="工事情報">
-      <h2 class="card__title">工事情報</h2>
-      <div class="field">
-        <label class="field__label" for="job-orderNo">注文番号</label>
-        <input id="job-orderNo" class="field__input" type="text" inputmode="text"
-          placeholder="例: 12345" />
+      <div class="card__head">
+        <h2 class="card__title card__title--inline">工事情報</h2>
+        <button id="job-toggle" class="link-btn is-hidden" type="button">編集</button>
       </div>
-      <div class="field">
-        <label class="field__label" for="job-name">工事名</label>
-        <input id="job-name" class="field__input" type="text"
-          placeholder="例: ○○ビル空調更新工事" />
+      <p id="job-summary" class="job-summary is-hidden"></p>
+      <div id="job-body">
+        <div class="field">
+          <label class="field__label" for="job-orderNo">注文番号</label>
+          <input id="job-orderNo" class="field__input" type="text" inputmode="text"
+            placeholder="例: 12345" />
+        </div>
+        <div class="field">
+          <label class="field__label" for="job-name">工事名</label>
+          <input id="job-name" class="field__input" type="text"
+            placeholder="例: ○○ビル空調更新工事" />
+        </div>
+        <div class="field">
+          <label class="field__label" for="job-place">工事場所</label>
+          <input id="job-place" class="field__input" type="text"
+            placeholder="例: 神戸市西区○○" />
+        </div>
+        <p class="card__note">
+          工事名・工事場所は全写真の共通項目です（PDFの各写真の右側にも使われます）。
+          写真ごとに設定するのは施工区分のみです。
+        </p>
       </div>
-      <div class="field">
-        <label class="field__label" for="job-place">工事場所</label>
-        <input id="job-place" class="field__input" type="text"
-          placeholder="例: 神戸市西区○○" />
-      </div>
-      <p class="card__note">
-        工事名・工事場所は全写真の共通項目です（PDFの各写真の右側にも使われます）。
-        写真ごとに設定するのは施工区分のみです。
-      </p>
     </section>
 
-    <!-- 写真選択バー -->
+    <!-- 上段: 写真選択 + PDF生成 -->
     <section class="picker" aria-label="写真の選択">
-      <label class="btn btn--block" for="photo-input">
-        写真を選択／追加
-      </label>
+      <label class="btn btn--block" for="photo-input">写真を選択／追加</label>
       <!-- カメラロール等から複数選択。選択するたび既存に追加する -->
-      <input
-        id="photo-input"
-        class="visually-hidden"
-        type="file"
-        accept="image/*"
-        multiple
-      />
+      <input id="photo-input" class="visually-hidden" type="file"
+        accept="image/*" multiple />
+      <button id="generate-pdf-top" class="btn btn--block" type="button" disabled>
+        PDFを生成
+      </button>
       <p id="photo-count" class="picker__count"></p>
     </section>
 
@@ -79,18 +81,25 @@
       <p class="empty-state__sub">並び順がそのままPDFの掲載順になります。</p>
     </section>
 
-    <!-- 送付ブロック（PDF生成後に表示。宛先・送付） -->
+    <!-- 下段: 写真選択（2つ目。一覧の最後から追加しやすいように） -->
+    <label id="photo-add-bottom" class="btn btn--block is-hidden" for="photo-input">
+      写真を選択／追加
+    </label>
+
+    <!-- 送付ブロック（PDF生成後に表示） -->
     <div id="pdf-result" class="pdf-result is-hidden"></div>
 
-    <!-- 下部操作: 上から 生成 → 開く → クリア -->
-    <button id="generate-pdf" class="btn btn--block is-hidden" type="button">
+    <!-- 下部操作: 上から 生成 → 開く → クリア → 設定 -->
+    <button id="generate-pdf" class="btn btn--block" type="button" disabled>
       PDFを生成
     </button>
     <a id="open-pdf" class="btn btn--ghost btn--block is-hidden" target="_blank"
       rel="noopener">PDFを開く（プレビュー）</a>
-    <!-- 最初からやり直す（写真＋工事情報をリセット。設定は残す） -->
     <button id="clear-all" class="btn btn--ghost btn--block is-hidden" type="button">
       最初からやり直す（クリア）
+    </button>
+    <button id="open-settings-bottom" class="btn btn--ghost btn--block" type="button">
+      設定
     </button>
   </main>
 
@@ -98,11 +107,11 @@
   <div id="settings" class="overlay is-hidden" role="dialog" aria-modal="true"
     aria-label="設定">
     <header class="overlay__header">
-      <button id="close-settings" class="header-btn header-btn--left" type="button">
-        閉じる
+      <button id="settings-save" class="header-btn header-btn--left" type="button">
+        保存して閉じる
       </button>
       <h2 class="overlay__title">設定</h2>
-      <span class="header-btn header-btn--spacer" aria-hidden="true"></span>
+      <button id="settings-cancel" class="header-btn" type="button">キャンセル</button>
     </header>
 
     <div class="overlay__body">
