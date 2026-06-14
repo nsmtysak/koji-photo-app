@@ -647,6 +647,20 @@
     return tmpl.replace(/\{工事名\}/g, state.job.name || "");
   }
 
+  // テキストをクリップボードへコピー（失敗時はprompt）
+  async function copyText(text, btn) {
+    try {
+      await navigator.clipboard.writeText(text);
+      if (btn) {
+        const org = btn.textContent;
+        btn.textContent = "コピー済み";
+        setTimeout(() => (btn.textContent = org), 1200);
+      }
+    } catch (e) {
+      window.prompt("コピーしてください", text);
+    }
+  }
+
   // 最近使った宛先（最大8件）
   function loadRecents() {
     const arr = load(LS.recentTo, []);
@@ -677,10 +691,11 @@
     }
     if (navigator.canShare && navigator.canShare({ files: [file] })) {
       try {
+        // text は渡さない（iOSメールでは本文に入ってしまうため）。
+        // title は件名候補として渡す（端末により反映されない場合あり）。
         await navigator.share({
           files: [file],
           title: subject || "工事写真帳",
-          text: subject || "",
         });
         return;
       } catch (e) {
@@ -726,7 +741,7 @@
     });
     toRow.append(toLabel, toInput, dl);
 
-    // 件名（雛形＋工事名差し込み。表示のみ）
+    // 件名（雛形＋工事名差し込み。iOSは件名を自動入力できないためコピー可）
     const subjRow = document.createElement("div");
     subjRow.className = "send-box__field";
     const subjLabel = document.createElement("span");
@@ -735,7 +750,12 @@
     const subjVal = document.createElement("span");
     subjVal.className = "send-box__subject";
     subjVal.textContent = subject || "（未設定）";
-    subjRow.append(subjLabel, subjVal);
+    const subjCopy = document.createElement("button");
+    subjCopy.type = "button";
+    subjCopy.className = "link-btn";
+    subjCopy.textContent = "件名をコピー";
+    subjCopy.addEventListener("click", () => copyText(subject, subjCopy));
+    subjRow.append(subjLabel, subjVal, subjCopy);
 
     // PDFを添付して送る（共有シート → メールでPDFが自動添付）
     // タップ時に宛先をクリップボードへ自動コピー → メールの宛先に貼り付けるだけ。
@@ -760,8 +780,8 @@
     const note = document.createElement("p");
     note.className = "send-box__note";
     note.textContent = canShareFile
-      ? "宛先を入れて「PDFを送る」を押すと、入力した宛先が自動でコピーされ、メール送付画面の宛先欄に貼り付け（ペースト）できます。表示中の件名はメールのタイトルとして挿入されます。"
-      : "「PDFを保存」でダウンロード後、メールに添付してください。表示中の件名はメールのタイトルに使われます。";
+      ? "宛先を入れて「PDFを送る」を押すと、PDFが添付され、入力した宛先が自動コピーされます。メールの宛先欄に貼り付け（ペースト）してください。件名はiOSの仕様で自動入力できないため、「件名をコピー」→メールの件名欄に貼り付けてください。"
+      : "「PDFを保存」でダウンロード後、メールに添付してください。件名は「件名をコピー」で貼り付けられます。";
 
     box.append(toRow, subjRow, shareBtn, status, note);
     return box;
