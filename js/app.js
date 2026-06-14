@@ -25,7 +25,6 @@
     mail: "koji.mail",
     bodyTpl: "koji.bodyTemplates",
     cats: "koji.categories",
-    recentTo: "koji.recentTo",
     perPage: "koji.perPage",
     session: "koji.session", // 写真の並び順・区分（本体はIndexedDB）
   };
@@ -106,7 +105,6 @@
     fax: "(078)967-3856",
   };
   const DEFAULT_MAIL = {
-    to: "",
     subject: "工事写真帳送付の件（{工事名}）",
   };
   // 本文の定型句（複数登録・選択式。選択中のものを本文に挿入）
@@ -186,7 +184,6 @@
     coAddress: $("co-address"),
     coTel: $("co-tel"),
     coFax: $("co-fax"),
-    mailTo: $("mail-to"),
     mailSubject: $("mail-subject"),
     bodyTplList: $("body-tpl-list"),
     bodyTplAdd: $("body-tpl-add"),
@@ -313,7 +310,6 @@
     bindText(els.coAddress, state.company, "address", LS.company);
     bindText(els.coTel, state.company, "tel", LS.company);
     bindText(els.coFax, state.company, "fax", LS.company);
-    bindText(els.mailTo, state.mail, "to", LS.mail);
     bindText(els.mailSubject, state.mail, "subject", LS.mail);
 
     els.bodyTplAdd.addEventListener("click", addBodyTpl);
@@ -803,34 +799,9 @@
     }
   }
 
-  // 最近使った宛先（最大8件）
-  function loadRecents() {
-    const arr = load(LS.recentTo, []);
-    return Array.isArray(arr) ? arr : [];
-  }
-  function saveRecent(to) {
-    to = (to || "").trim();
-    if (!to) return;
-    let arr = loadRecents().filter((x) => x !== to);
-    arr.unshift(to);
-    arr = arr.slice(0, 8);
-    save(LS.recentTo, arr);
-  }
-
   // PDFを共有・保存（共有シート）。メール添付や「"ファイル"に保存」が選べる。
-  // 共有シートのメールでは宛先を自動入力できないため、先に宛先をクリップボードへ
-  // コピーしておく（メールの宛先欄に貼り付けるだけで済む）。
-  // 非対応環境: ダウンロード保存にフォールバック。
-  async function sharePdf(file, subject, to, body) {
-    to = (to || "").trim();
-    if (to) {
-      saveRecent(to);
-      try {
-        await navigator.clipboard.writeText(to);
-      } catch (e) {
-        /* 失敗しても共有は続行 */
-      }
-    }
+  // 宛先はメールアプリ側で入力する。非対応環境: ダウンロード保存にフォールバック。
+  async function sharePdf(file, body) {
     if (navigator.canShare && navigator.canShare({ files: [file] })) {
       try {
         // iOSメールは共有の title を件名欄に入れず本文に混ぜてしまうため title は渡さない。
@@ -852,37 +823,37 @@
     a.remove();
   }
 
-  // 送付ブロック（宛先入力＋件名＋2つの送付ボタン）を組み立てる
+  // 送付ブロック（PDFを送る＋件名表示）を組み立てる。
+  // 宛先はメールアプリ側で入力する。件名は送付時に自動コピー。
   function buildSendBox(file, filename, subject, body, canShareFile) {
     const box = document.createElement("div");
     box.className = "send-box";
 
-    // 宛先（毎回入力・選択可。初期値は設定の宛先。過去の宛先を候補表示）
-    const toRow = document.createElement("div");
-    toRow.className = "send-box__field";
-    const toLabel = document.createElement("label");
-    toLabel.className = "send-box__label";
-    toLabel.textContent = "宛先";
-    toLabel.htmlFor = "send-to";
-    const toInput = document.createElement("input");
-    toInput.type = "email";
-    toInput.id = "send-to";
-    toInput.className = "field__input";
-    toInput.placeholder = "送信先メールアドレス";
-    toInput.value = state.mail.to || "";
-    toInput.setAttribute("list", "recent-to-list");
-    toInput.autocapitalize = "off";
-    toInput.autocomplete = "email";
-    const dl = document.createElement("datalist");
-    dl.id = "recent-to-list";
-    loadRecents().forEach((addr) => {
-      const opt = document.createElement("option");
-      opt.value = addr;
-      dl.appendChild(opt);
-    });
-    toRow.append(toLabel, toInput, dl);
+    // PDFを添付して送る（共有シート → メールでPDFが自動添付）。
+    // タップ時に件名をクリップボードへ自動コピー → メールの件名欄に貼り付けるだけ。
+    const shareBtn = document.createElement("button");
+    shareBtn.type = "button";
+    shareBtn.className = "btn btn--block";
+    shareBtn.textContent = canShareFile ? "PDFを送る" : "PDFを保存（ダウンロード）";
 
-    // 件名（雛形＋工事名差し込み。iOSは件名を自動入力できないためコピー可）
+    const status = document.createElement("p");
+    status.className = "send-box__status is-hidden";
+
+    shareBtn.addEventListener("click", async () => {
+      if (canShareFile && subject) {
+        try {
+          await navigator.clipboard.writeText(subject);
+        } catch (e) {
+          /* 失敗しても送付は続行 */
+        }
+        status.textContent =
+          "件名をコピーしました。メールの件名欄を長押し→ペーストで貼り付けてください。";
+        status.classList.remove("is-hidden");
+      }
+      await sharePdf(file, body);
+    });
+
+    // 件名（雛形＋工事名差し込み。表示＋手動コピーも可）
     const subjRow = document.createElement("div");
     subjRow.className = "send-box__field";
     const subjLabel = document.createElement("span");
@@ -898,34 +869,14 @@
     subjCopy.addEventListener("click", () => copyText(subject, subjCopy));
     subjRow.append(subjLabel, subjVal, subjCopy);
 
-    // PDFを添付して送る（共有シート → メールでPDFが自動添付）
-    // タップ時に宛先をクリップボードへ自動コピー → メールの宛先に貼り付けるだけ。
-    const shareBtn = document.createElement("button");
-    shareBtn.type = "button";
-    shareBtn.className = "btn btn--block";
-    shareBtn.textContent = canShareFile ? "PDFを送る" : "PDFを保存（ダウンロード）";
-
-    const status = document.createElement("p");
-    status.className = "send-box__status is-hidden";
-
-    shareBtn.addEventListener("click", async () => {
-      const to = toInput.value.trim();
-      if (canShareFile && to) {
-        status.textContent =
-          "宛先「" + to + "」をコピーしました。メールの宛先欄を長押し→ペーストで貼り付けてください。";
-        status.classList.remove("is-hidden");
-      }
-      await sharePdf(file, subject, toInput.value, body);
-    });
-
     const note = document.createElement("p");
     note.className = "send-box__note";
     note.textContent = canShareFile
-      ? "宛先を入れて「PDFを送る」を押すと、PDFが添付され、本文に定型文が入り、入力した宛先が自動コピーされます。メールの宛先欄に貼り付け（ペースト）してください。件名はiOSの仕様で自動入力できないため、「件名をコピー」→メールの件名欄に貼り付けてください。（本文の定型文は設定で変更できます）"
-      : "「PDFを保存」でダウンロード後、メールに添付してください。件名は「件名をコピー」で貼り付けられます。";
+      ? "「PDFを送る」を押すと、PDFが添付され、本文に定型句が入り、件名が自動でコピーされます。メールアプリで宛先を入力し、件名欄に貼り付け（ペースト）してください。（本文の定型句は設定で変更できます）"
+      : "「PDFを保存」でダウンロード後、メールに添付してください。宛先はメールアプリで入力、件名は「件名をコピー」で貼り付けてください。";
 
     // 「PDFを送る」をカード最上段に配置
-    box.append(shareBtn, status, toRow, subjRow, note);
+    box.append(shareBtn, status, subjRow, note);
     return box;
   }
 

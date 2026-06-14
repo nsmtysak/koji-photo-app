@@ -131,19 +131,17 @@
         </div>
       </section>
 
-      <!-- メール雛形 -->
-      <section class="card" aria-label="メール雛形">
-        <h3 class="card__title">メール雛形（Phase 4 で使用）</h3>
-        <div class="field">
-          <label class="field__label" for="mail-to">送信宛先（元請けのメール）</label>
-          <input id="mail-to" class="field__input" type="email" inputmode="email"
-            placeholder="例: genba@example.co.jp" />
-        </div>
+      <!-- メール件名 -->
+      <section class="card" aria-label="メール件名">
+        <h3 class="card__title">メールの件名</h3>
         <div class="field">
           <label class="field__label" for="mail-subject">件名の雛形</label>
           <input id="mail-subject" class="field__input" type="text"
             placeholder="例: 工事写真帳送付の件（{工事名}）" />
-          <p class="field__hint"><code>{工事名}</code> は工事名に置き換わります。</p>
+          <p class="field__hint">
+            <code>{工事名}</code> は工事名に置き換わります。
+            送付時に自動でコピーされ、メールの件名欄に貼り付けられます。
+          </p>
         </div>
       </section>
 
