@@ -620,6 +620,55 @@ body.no-scroll {
   flex: 1;
 }
 
+/* ===== テキストエリア ===== */
+.field__textarea {
+  min-height: 100px;
+  line-height: 1.5;
+  resize: vertical;
+  font-family: inherit;
+}
+
+/* ===== 本文の定型句（複数） ===== */
+.tpl-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.tpl-item {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px;
+  background: #fff;
+}
+
+.tpl-item__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.tpl-item__radio {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.tpl-item__radio input {
+  width: 20px;
+  height: 20px;
+  accent-color: var(--accent);
+}
+
+.tpl-item__del {
+  color: #ff3b30;
+}
+
 /* ===== セグメント選択（写真枚数など） ===== */
 .segmented {
   display: flex;

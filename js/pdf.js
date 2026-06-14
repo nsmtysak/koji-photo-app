@@ -207,35 +207,46 @@ window.KojiPDF = (function () {
     }
   }
 
-  // 件名/場所/区分を縦に描画。topYから下へ。最終yを返す。
-  function drawFields(page, font, x, topY, width, texts, labelSize, valSize) {
-    const fields = [
-      ["工事件名", texts.title],
-      ["工事場所", texts.place],
-      ["施工区分", texts.category],
-    ];
-    let ty = topY;
-    fields.forEach((f) => {
-      page.drawText(f[0], {
-        x,
-        y: ty - labelSize,
-        size: labelSize,
-        font,
-        color: COLOR_SUB,
-      });
-      ty -= labelSize + 3;
-      wrapText(font, f[1] || "", valSize, width).forEach((line) => {
-        page.drawText(line, {
-          x,
-          y: ty - valSize,
-          size: valSize,
-          font,
-          color: COLOR_TEXT,
-        });
-        ty -= valSize + 3;
-      });
-      ty -= 6; // フィールド間
+  // ラベル＋値の1ブロックを描画。topYから下へ。ブロック下端yを返す。
+  function drawBlock(page, font, label, value, x, topY, width, labelSize, valSize) {
+    page.drawText(label, {
+      x,
+      y: topY - labelSize,
+      size: labelSize,
+      font,
+      color: COLOR_SUB,
     });
+    let yy = topY - labelSize - 3;
+    wrapText(font, value || "", valSize, width).forEach((line) => {
+      page.drawText(line, {
+        x,
+        y: yy - valSize,
+        size: valSize,
+        font,
+        color: COLOR_TEXT,
+      });
+      yy -= valSize + 3;
+    });
+    return yy;
+  }
+
+  // 件名/場所/区分/日付を描画。compact時は区分と日付を同じ行（左右）に。
+  function drawFields(page, font, x, topY, width, texts, labelSize, valSize, compact) {
+    let ty = topY;
+    ty = drawBlock(page, font, "工事件名", texts.title, x, ty, width, labelSize, valSize) - 6;
+    ty = drawBlock(page, font, "工事場所", texts.place, x, ty, width, labelSize, valSize) - 6;
+
+    if (compact) {
+      // 施工区分 と 撮影日 を同じ行（左右2列）に
+      const gap = 10;
+      const halfW = (width - gap) / 2;
+      const y1 = drawBlock(page, font, "施工区分", texts.category, x, ty, halfW, labelSize, valSize);
+      const y2 = drawBlock(page, font, "撮影日", texts.date, x + halfW + gap, ty, halfW, labelSize, valSize);
+      ty = Math.min(y1, y2) - 6;
+    } else {
+      ty = drawBlock(page, font, "施工区分", texts.category, x, ty, width, labelSize, valSize) - 6;
+      ty = drawBlock(page, font, "撮影日", texts.date, x, ty, width, labelSize, valSize) - 6;
+    }
     return ty;
   }
 
@@ -252,19 +263,19 @@ window.KojiPDF = (function () {
 
     const textX = imgBoxX + imgBoxW + 18;
     const textW = W - MARGIN - textX;
-    drawFields(page, font, textX, innerTop - 6, textW, texts, 10, 12);
+    drawFields(page, font, textX, innerTop - 6, textW, texts, 10, 12, false);
   }
 
   /* ---------- グリッドレイアウト（4枚/ページ）: 上=写真、下=文言 ---------- */
   function drawPhotoCell(page, font, image, texts, cellLeft, cellTop, cellW, cellH) {
-    const textH = 84;
+    const textH = 92;
     const imgBoxH = cellH - textH;
     const imgBoxY = cellTop - imgBoxH; // 枠の下端
 
     drawImageBox(page, image, cellLeft, imgBoxY, cellW, imgBoxH);
 
-    // 写真の下に文言
-    drawFields(page, font, cellLeft, imgBoxY - 6, cellW, texts, 9, 11);
+    // 写真の下に文言（区分と日付は同じ行）
+    drawFields(page, font, cellLeft, imgBoxY - 6, cellW, texts, 9, 11, true);
   }
 
   /* ---------- メイン ---------- */
@@ -318,10 +329,11 @@ window.KojiPDF = (function () {
       }
 
       const texts = {
-        // 件名・場所は工事情報の共通値、区分は写真ごと
+        // 件名・場所は工事情報の共通値、区分・日付は写真ごと
         title: job.name || "",
         place: job.place || "",
         category: photo.category || "",
+        date: photo.date || "",
       };
       const idx = i % perPage;
 

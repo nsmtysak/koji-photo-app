@@ -70,17 +70,24 @@ PDF: `window.KojiPDF.generate({ job, company, photos, onProgress })` → Uint8Ar
 - `koji.jobInfo` … `{ orderNo, name, place }`（工事情報。表紙・写真初期値に使用）
 - `koji.company` … `{ name, postal, address, tel, fax }`（自社情報。表紙下部）
 - `koji.mail` … `{ to, subject }`（メール雛形。件名は `{工事名}` を差し込み）
-- `koji.categories` … `string[]`（施工区分タグの候補。設定画面で▲▼並べ替え可）
+- `koji.bodyTemplates` … `{ list:[string], selected:index }`（本文の定型句。複数登録・選択式）
+- `koji.categories` … `string[]`（施工区分タグの候補。設定画面で▲▼並べ替え可。既定に「部材」を含む）
 - `koji.recentTo` … `string[]`（直近に使ったメール宛先。送付時の候補表示）
 - `koji.perPage` … `2|3|4`（1ページの写真枚数。既定3）
-- `koji.session` … `{ order:[id], cats:{id:区分} }`（作業中の写真の並び順・区分。本体は IndexedDB `koji-db/photos`）
+- `koji.session` … `{ order:[id], cats:{id:区分}, dates:{id:日付} }`（作業中の写真の並び順・区分・撮影日。本体は IndexedDB `koji-db/photos`）
+- `koji.mig.buzai` … 既存ユーザーへ「部材」を一度だけ追加する移行フラグ
 
 写真本体は **IndexedDB に一時退避**し、iOSのPWA再読み込み（プレビュー表示で背面化等）後も復元する。
 これは「溜め込み」ではなく作業セッションの保全で、**クリアで IndexedDB ごと消去**する。
 
 写真ごとに設定するのは **施工区分（`category`）のみ**。工事件名・工事場所は
 工事情報（`koji.jobInfo` の name/place）の共通値を全写真で使う（写真ごとには持たない）。
-`category` は state.photos の各要素に保持し、**写真と同様セッション内のみ**で永続化しない。
+**撮影日（`date`）は写真ファイルの `lastModified` から自動取得**しPDFに表示する。
+`category`/`date` は state.photos の各要素に保持し、session（IndexedDB＋koji.session）で復元する。
+
+メール送付（Phase 4）: iOSの共有シートは件名(title)を件名欄に入れず本文に混ぜるため、
+共有は `{ files, text:本文定型句 }` のみ渡す（件名は「件名をコピー」で貼り付け、宛先は送付時に自動コピー）。
+本文の定型句は `koji.bodyTemplates` の選択中の文章を `{工事名}{工事場所}{注文番号}{会社名}` 差し込みで挿入。
 
 ## 5. 留意点
 

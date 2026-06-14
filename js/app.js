@@ -23,6 +23,7 @@
     job: "koji.jobInfo",
     company: "koji.company",
     mail: "koji.mail",
+    bodyTpl: "koji.bodyTemplates",
     cats: "koji.categories",
     recentTo: "koji.recentTo",
     perPage: "koji.perPage",
@@ -89,6 +90,7 @@
   /* ---------- 既定値 ---------- */
   const DEFAULT_CATS = [
     "施工前",
+    "部材",
     "解体前",
     "解体後",
     "施工中",
@@ -107,6 +109,13 @@
     to: "",
     subject: "工事写真帳送付の件（{工事名}）",
   };
+  // 本文の定型句（複数登録・選択式。選択中のものを本文に挿入）
+  const DEFAULT_BODY =
+    "ご担当者様\n\n" +
+    "本メールはアプリによる自動配信のため、文面が十分に整っておりませんことをお詫び申し上げます。\n" +
+    "ご依頼の工事が完了致しましたので、添付にて工事写真帳を送付致します。\n" +
+    "ご査収の程よろしくお願い致します。";
+  const DEFAULT_BODY_TPL = { list: [DEFAULT_BODY], selected: 0 };
   const DEFAULT_JOB = { orderNo: "", name: "", place: "" };
 
   /* ---------- 状態 ---------- */
@@ -121,8 +130,34 @@
       const c = load(LS.cats, null);
       return Array.isArray(c) && c.length ? c : DEFAULT_CATS.slice();
     })(),
+    // 本文の定型句 { list:[文章...], selected:index }
+    bodyTpl: (function () {
+      const b = load(LS.bodyTpl, null);
+      if (b && Array.isArray(b.list) && b.list.length) {
+        const sel = Math.min(Math.max(0, b.selected | 0), b.list.length - 1);
+        return { list: b.list, selected: sel };
+      }
+      return { list: DEFAULT_BODY_TPL.list.slice(), selected: 0 };
+    })(),
     perPage: [2, 3, 4].indexOf(load(LS.perPage, 3)) >= 0 ? load(LS.perPage, 3) : 3,
   };
+
+  // 一度だけ: 新しく既定に加えた「部材」を、未登録なら「施工前」の後に追加
+  (function migrateBuzai() {
+    try {
+      if (localStorage.getItem("koji.mig.buzai")) return;
+      if (state.cats.indexOf("部材") === -1) {
+        const i = state.cats.indexOf("施工前");
+        if (i >= 0) state.cats.splice(i + 1, 0, "部材");
+        else state.cats.unshift("部材");
+        save(LS.cats, state.cats);
+      }
+      localStorage.setItem("koji.mig.buzai", "1");
+    } catch (e) {
+      /* noop */
+    }
+  })();
+
   let nextId = 1;
   let catEditMode = false; // 写真側の区分チップが「候補を編集」モードか
 
@@ -153,6 +188,8 @@
     coFax: $("co-fax"),
     mailTo: $("mail-to"),
     mailSubject: $("mail-subject"),
+    bodyTplList: $("body-tpl-list"),
+    bodyTplAdd: $("body-tpl-add"),
     catList: $("cat-list"),
     catNew: $("cat-new"),
     catAddBtn: $("cat-add-btn"),
@@ -188,6 +225,80 @@
   /* ===========================================================
      設定画面
      =========================================================== */
+
+  /* ---------- 本文の定型句（複数・選択式） ---------- */
+  function saveBodyTpl() {
+    save(LS.bodyTpl, state.bodyTpl);
+  }
+
+  function addBodyTpl() {
+    state.bodyTpl.list.push("");
+    state.bodyTpl.selected = state.bodyTpl.list.length - 1;
+    saveBodyTpl();
+    renderBodyTpls();
+  }
+
+  function deleteBodyTpl(i) {
+    if (state.bodyTpl.list.length <= 1) {
+      alert("定型句は1つ以上必要です。");
+      return;
+    }
+    state.bodyTpl.list.splice(i, 1);
+    if (state.bodyTpl.selected >= state.bodyTpl.list.length) {
+      state.bodyTpl.selected = state.bodyTpl.list.length - 1;
+    }
+    saveBodyTpl();
+    renderBodyTpls();
+  }
+
+  function renderBodyTpls() {
+    els.bodyTplList.innerHTML = "";
+    const frag = document.createDocumentFragment();
+    state.bodyTpl.list.forEach((text, i) => {
+      const item = document.createElement("div");
+      item.className = "tpl-item";
+
+      const head = document.createElement("div");
+      head.className = "tpl-item__head";
+
+      const radioLabel = document.createElement("label");
+      radioLabel.className = "tpl-item__radio";
+      const radio = document.createElement("input");
+      radio.type = "radio";
+      radio.name = "body-tpl";
+      radio.checked = i === state.bodyTpl.selected;
+      radio.addEventListener("change", () => {
+        state.bodyTpl.selected = i;
+        saveBodyTpl();
+      });
+      const radioText = document.createElement("span");
+      radioText.textContent = "この定型句を使う";
+      radioLabel.append(radio, radioText);
+
+      const del = document.createElement("button");
+      del.type = "button";
+      del.className = "link-btn tpl-item__del";
+      del.textContent = "削除";
+      del.addEventListener("click", () => deleteBodyTpl(i));
+
+      head.append(radioLabel, del);
+
+      const ta = document.createElement("textarea");
+      ta.className = "field__input field__textarea";
+      ta.rows = 5;
+      ta.value = text;
+      ta.placeholder = "メール本文に挿入する定型句";
+      ta.addEventListener("input", () => {
+        state.bodyTpl.list[i] = ta.value;
+        saveBodyTpl();
+      });
+
+      item.append(head, ta);
+      frag.appendChild(item);
+    });
+    els.bodyTplList.appendChild(frag);
+  }
+
   function bindText(input, obj, key, lsKey) {
     input.value = obj[key] || "";
     input.addEventListener("input", () => {
@@ -204,6 +315,9 @@
     bindText(els.coFax, state.company, "fax", LS.company);
     bindText(els.mailTo, state.mail, "to", LS.mail);
     bindText(els.mailSubject, state.mail, "subject", LS.mail);
+
+    els.bodyTplAdd.addEventListener("click", addBodyTpl);
+    renderBodyTpls();
 
     els.openSettings.addEventListener("click", () => {
       els.settings.classList.remove("is-hidden");
@@ -362,14 +476,25 @@
   /* ===========================================================
      写真
      =========================================================== */
-  // 写真の並び順・区分を localStorage に、本体はIndexedDBに退避
+  // ファイルの更新日時から日付文字列（YYYY/MM/DD）を得る（写真データ参照）
+  function fileToDate(file) {
+    const t = file && file.lastModified;
+    if (!t) return "";
+    const d = new Date(t);
+    const p = (n) => String(n).padStart(2, "0");
+    return d.getFullYear() + "/" + p(d.getMonth() + 1) + "/" + p(d.getDate());
+  }
+
+  // 写真の並び順・区分・日付を localStorage に、本体はIndexedDBに退避
   function saveSession() {
     const order = state.photos.map((p) => p.id);
     const cats = {};
+    const dates = {};
     state.photos.forEach((p) => {
       if (p.category) cats[p.id] = p.category;
+      if (p.date) dates[p.id] = p.date;
     });
-    save(LS.session, { order: order, cats: cats });
+    save(LS.session, { order: order, cats: cats, dates: dates });
   }
 
   // 起動時: IndexedDBから写真を復元（再読み込み対策）
@@ -385,6 +510,7 @@
         file: blob,
         url: URL.createObjectURL(blob),
         category: (s.cats && s.cats[id]) || "",
+        date: (s.dates && s.dates[id]) || "",
       });
     }
     if (restored.length === 0) return;
@@ -406,8 +532,9 @@
         file: file,
         url: URL.createObjectURL(file),
         // 工事件名・工事場所は工事情報の共通値を使うため写真ごとには持たない。
-        // 写真ごとに設定するのは施工区分のみ。
+        // 写真ごとに設定するのは施工区分のみ。日付は写真データから参照。
         category: "",
+        date: fileToDate(file),
       });
       IDB.put(id, file); // 本体を退避
     });
@@ -641,10 +768,25 @@
     return (s || "工事").replace(/[\\/:*?"<>|\s]+/g, "_").slice(0, 40);
   }
 
-  // 件名の雛形に工事名を差し込む
+  // 雛形のプレースホルダを差し込む（{工事名}{工事場所}{注文番号}{会社名}）
+  function fillTemplate(tmpl) {
+    return String(tmpl || "")
+      .replace(/\{工事名\}/g, state.job.name || "")
+      .replace(/\{工事場所\}/g, state.job.place || "")
+      .replace(/\{注文番号\}/g, state.job.orderNo || "")
+      .replace(/\{会社名\}/g, state.company.name || "");
+  }
+
+  // 件名の雛形に差し込み
   function buildSubject() {
-    const tmpl = state.mail.subject || "工事写真帳送付の件";
-    return tmpl.replace(/\{工事名\}/g, state.job.name || "");
+    return fillTemplate(state.mail.subject || "工事写真帳送付の件");
+  }
+
+  // 本文の定型句（選択中）に差し込み
+  function buildBody() {
+    const t = state.bodyTpl;
+    const tpl = (t.list && t.list[t.selected]) || "";
+    return fillTemplate(tpl);
   }
 
   // テキストをクリップボードへコピー（失敗時はprompt）
@@ -679,7 +821,7 @@
   // 共有シートのメールでは宛先を自動入力できないため、先に宛先をクリップボードへ
   // コピーしておく（メールの宛先欄に貼り付けるだけで済む）。
   // 非対応環境: ダウンロード保存にフォールバック。
-  async function sharePdf(file, subject, to) {
+  async function sharePdf(file, subject, to, body) {
     to = (to || "").trim();
     if (to) {
       saveRecent(to);
@@ -691,12 +833,11 @@
     }
     if (navigator.canShare && navigator.canShare({ files: [file] })) {
       try {
-        // text は渡さない（iOSメールでは本文に入ってしまうため）。
-        // title は件名候補として渡す（端末により反映されない場合あり）。
-        await navigator.share({
-          files: [file],
-          title: subject || "工事写真帳",
-        });
+        // iOSメールは共有の title を件名欄に入れず本文に混ぜてしまうため title は渡さない。
+        // text=本文の定型句のみ渡す（本文に入る）。件名は「件名をコピー」で貼り付け。
+        const data = { files: [file] };
+        if (body) data.text = body;
+        await navigator.share(data);
         return;
       } catch (e) {
         if (e && e.name === "AbortError") return;
@@ -712,7 +853,7 @@
   }
 
   // 送付ブロック（宛先入力＋件名＋2つの送付ボタン）を組み立てる
-  function buildSendBox(file, filename, subject, canShareFile) {
+  function buildSendBox(file, filename, subject, body, canShareFile) {
     const box = document.createElement("div");
     box.className = "send-box";
 
@@ -774,16 +915,17 @@
           "宛先「" + to + "」をコピーしました。メールの宛先欄を長押し→ペーストで貼り付けてください。";
         status.classList.remove("is-hidden");
       }
-      await sharePdf(file, subject, toInput.value);
+      await sharePdf(file, subject, toInput.value, body);
     });
 
     const note = document.createElement("p");
     note.className = "send-box__note";
     note.textContent = canShareFile
-      ? "宛先を入れて「PDFを送る」を押すと、PDFが添付され、入力した宛先が自動コピーされます。メールの宛先欄に貼り付け（ペースト）してください。件名はiOSの仕様で自動入力できないため、「件名をコピー」→メールの件名欄に貼り付けてください。"
+      ? "宛先を入れて「PDFを送る」を押すと、PDFが添付され、本文に定型文が入り、入力した宛先が自動コピーされます。メールの宛先欄に貼り付け（ペースト）してください。件名はiOSの仕様で自動入力できないため、「件名をコピー」→メールの件名欄に貼り付けてください。（本文の定型文は設定で変更できます）"
       : "「PDFを保存」でダウンロード後、メールに添付してください。件名は「件名をコピー」で貼り付けられます。";
 
-    box.append(toRow, subjRow, shareBtn, status, note);
+    // 「PDFを送る」をカード最上段に配置
+    box.append(shareBtn, status, toRow, subjRow, note);
     return box;
   }
 
@@ -835,7 +977,8 @@
       // 結果UI（送付ブロックのみ。プレビュー/生成/クリアは下部の固定ボタン）
       els.pdfResult.innerHTML = "";
       const subject = buildSubject();
-      const sendBox = buildSendBox(file, filename, subject, canShareFile);
+      const body = buildBody();
+      const sendBox = buildSendBox(file, filename, subject, body, canShareFile);
 
       const info = document.createElement("p");
       info.className = "pdf-result__info";
