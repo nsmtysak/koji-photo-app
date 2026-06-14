@@ -173,10 +173,13 @@ body {
 /* ===== 写真選択バー ===== */
 .picker {
   margin-bottom: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 }
 
 .picker__count {
-  margin: 10px 2px 0;
+  margin: 0 2px;
   font-size: 13px;
   color: var(--text-sub);
   text-align: center;
@@ -386,10 +389,12 @@ body {
   margin-bottom: 12px;
 }
 
-/* 下部の操作ボタン（生成 / 開く / クリア）の間隔 */
+/* 下段の各ボタンの間隔（写真追加 / 生成 / 開く / クリア / 設定） */
+#photo-add-bottom,
 #generate-pdf,
 #open-pdf,
-#clear-all {
+#clear-all,
+#open-settings-bottom {
   margin-top: 12px;
 }
 
