@@ -79,14 +79,15 @@
       <p class="empty-state__sub">並び順がそのままPDFの掲載順になります。</p>
     </section>
 
-    <!-- PDF生成（写真がある時のみ表示） -->
-    <section id="pdf-section" class="pdf-section is-hidden" aria-label="PDF生成">
-      <button id="generate-pdf" class="btn btn--block" type="button">
-        PDFを生成
-      </button>
-      <div id="pdf-result" class="pdf-result is-hidden"></div>
-    </section>
+    <!-- 送付ブロック（PDF生成後に表示。宛先・送付） -->
+    <div id="pdf-result" class="pdf-result is-hidden"></div>
 
+    <!-- 下部操作: 上から 生成 → 開く → クリア -->
+    <button id="generate-pdf" class="btn btn--block is-hidden" type="button">
+      PDFを生成
+    </button>
+    <a id="open-pdf" class="btn btn--ghost btn--block is-hidden" target="_blank"
+      rel="noopener">PDFを開く（プレビュー）</a>
     <!-- 最初からやり直す（写真＋工事情報をリセット。設定は残す） -->
     <button id="clear-all" class="btn btn--ghost btn--block is-hidden" type="button">
       最初からやり直す（クリア）

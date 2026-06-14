@@ -116,7 +116,11 @@
     job: Object.assign({}, DEFAULT_JOB, load(LS.job, {})),
     company: Object.assign({}, DEFAULT_COMPANY, load(LS.company, {})),
     mail: Object.assign({}, DEFAULT_MAIL, load(LS.mail, {})),
-    cats: load(LS.cats, null) || DEFAULT_CATS.slice(),
+    // 候補が空（全削除された等）になると選択肢が出ないため、空なら既定に戻す
+    cats: (function () {
+      const c = load(LS.cats, null);
+      return Array.isArray(c) && c.length ? c : DEFAULT_CATS.slice();
+    })(),
     perPage: [2, 3, 4].indexOf(load(LS.perPage, 3)) >= 0 ? load(LS.perPage, 3) : 3,
   };
   let nextId = 1;
@@ -135,8 +139,8 @@
     count: $("photo-count"),
     empty: $("empty-state"),
     clearAll: $("clear-all"),
-    pdfSection: $("pdf-section"),
     generatePdf: $("generate-pdf"),
+    openPdf: $("open-pdf"),
     pdfResult: $("pdf-result"),
     // 設定
     openSettings: $("open-settings"),
@@ -462,6 +466,8 @@
     }
     els.pdfResult.innerHTML = "";
     els.pdfResult.classList.add("is-hidden");
+    els.openPdf.classList.add("is-hidden");
+    els.openPdf.removeAttribute("href");
 
     // 「PDFを生成」ボタンを元の青背景に戻す
     els.generatePdf.classList.remove("btn--ghost");
@@ -615,7 +621,7 @@
     const total = state.photos.length;
     els.count.textContent = total === 0 ? "" : total + " 枚を選択中";
     els.empty.classList.toggle("is-hidden", total > 0);
-    els.pdfSection.classList.toggle("is-hidden", total === 0);
+    els.generatePdf.classList.toggle("is-hidden", total === 0);
     updateClearBtn();
 
     els.list.innerHTML = "";
@@ -641,20 +647,6 @@
     return tmpl.replace(/\{工事名\}/g, state.job.name || "");
   }
 
-  // テキストをクリップボードへコピー（失敗時はprompt）
-  async function copyText(text, btn) {
-    try {
-      await navigator.clipboard.writeText(text);
-      if (btn) {
-        const org = btn.textContent;
-        btn.textContent = "コピー済み";
-        setTimeout(() => (btn.textContent = org), 1200);
-      }
-    } catch (e) {
-      window.prompt("コピーしてください", text);
-    }
-  }
-
   // 最近使った宛先（最大8件）
   function loadRecents() {
     const arr = load(LS.recentTo, []);
@@ -667,19 +659,6 @@
     arr.unshift(to);
     arr = arr.slice(0, 8);
     save(LS.recentTo, arr);
-  }
-
-  // 宛先つきでメール作成（mailto:）。宛先・件名が入る。添付は手動。
-  function composeMail(to, subject) {
-    to = (to || "").trim();
-    saveRecent(to);
-    const params = [];
-    if (subject) params.push("subject=" + encodeURIComponent(subject));
-    const href =
-      "mailto:" +
-      encodeURIComponent(to) +
-      (params.length ? "?" + params.join("&") : "");
-    window.location.href = href;
   }
 
   // PDFを共有・保存（共有シート）。メール添付や「"ファイル"に保存」が選べる。
@@ -747,7 +726,7 @@
     });
     toRow.append(toLabel, toInput, dl);
 
-    // 件名（雛形＋工事名差し込み。コピー可）
+    // 件名（雛形＋工事名差し込み。表示のみ）
     const subjRow = document.createElement("div");
     subjRow.className = "send-box__field";
     const subjLabel = document.createElement("span");
@@ -756,14 +735,9 @@
     const subjVal = document.createElement("span");
     subjVal.className = "send-box__subject";
     subjVal.textContent = subject || "（未設定）";
-    const subjCopy = document.createElement("button");
-    subjCopy.type = "button";
-    subjCopy.className = "link-btn";
-    subjCopy.textContent = "コピー";
-    subjCopy.addEventListener("click", () => copyText(subject, subjCopy));
-    subjRow.append(subjLabel, subjVal, subjCopy);
+    subjRow.append(subjLabel, subjVal);
 
-    // 主役: PDFを添付して送る（共有シート → メールでPDFが自動添付）
+    // PDFを添付して送る（共有シート → メールでPDFが自動添付）
     // タップ時に宛先をクリップボードへ自動コピー → メールの宛先に貼り付けるだけ。
     const shareBtn = document.createElement("button");
     shareBtn.type = "button";
@@ -785,20 +759,13 @@
       await sharePdf(file, subject, toInput.value);
     });
 
-    // 副: 宛先・件名つきでメール作成（mailtoのため添付は不可）
-    const mailBtn = document.createElement("button");
-    mailBtn.type = "button";
-    mailBtn.className = "btn btn--ghost btn--block";
-    mailBtn.textContent = "宛先・件名だけでメール作成（添付なし）";
-    mailBtn.addEventListener("click", () => composeMail(toInput.value, subject));
-
     const note = document.createElement("p");
     note.className = "send-box__note";
     note.textContent = canShareFile
-      ? "おすすめは「PDFを添付してメール送付」。共有シートで“メール”を選ぶと PDF が自動で添付され、保存も手動添付も不要です。宛先は自動でコピーされるので、メールの宛先欄に貼り付けるだけ。（iOSの制約で宛先の自動入力だけはできません）"
-      : "「PDFを保存」でダウンロード後、メールに添付してください。「メール作成」は宛先・件名のみ入ります（PDFは添付されません）。";
+      ? "共有シートで“メール”を選ぶと PDF が自動で添付されます（保存も手動添付も不要）。宛先は自動でコピーされるので、メールの宛先欄に貼り付けるだけです。（iOSの制約で宛先の自動入力だけはできません）"
+      : "「PDFを保存」でダウンロード後、メールに添付してください。";
 
-    box.append(toRow, subjRow, shareBtn, status, mailBtn, note);
+    box.append(toRow, subjRow, shareBtn, status, note);
     return box;
   }
 
@@ -847,18 +814,8 @@
       const canShareFile =
         navigator.canShare && navigator.canShare({ files: [file] });
 
-      // 結果UI
+      // 結果UI（送付ブロックのみ。プレビュー/生成/クリアは下部の固定ボタン）
       els.pdfResult.innerHTML = "";
-
-      // プレビュー
-      const openLink = document.createElement("a");
-      openLink.href = lastPdfUrl;
-      openLink.target = "_blank";
-      openLink.rel = "noopener";
-      openLink.className = "btn btn--block";
-      openLink.textContent = "PDFを開く（プレビュー）";
-
-      // 送付ブロック（宛先入力＋件名＋メール作成／共有・保存）
       const subject = buildSubject();
       const sendBox = buildSendBox(file, filename, subject, canShareFile);
 
@@ -868,15 +825,19 @@
       info.textContent =
         filename + "（表紙＋写真" + state.photos.length + "枚 / 全" + pages + "ページ）";
 
-      els.pdfResult.append(openLink, sendBox, info);
+      els.pdfResult.append(sendBox, info);
       els.pdfResult.classList.remove("is-hidden");
+
+      // 「PDFを開く（プレビュー）」ボタンを表示・リンク更新
+      els.openPdf.href = lastPdfUrl;
+      els.openPdf.classList.remove("is-hidden");
 
       // 生成後に自動でPDFを表示（プレビューを押さなくても開く）
       if (previewWin && !previewWin.closed) {
         previewWin.location.href = lastPdfUrl;
       } else {
         // ポップアップがブロックされた場合は別タブで開く（アプリ画面は保持）
-        openLink.click();
+        els.openPdf.click();
       }
 
       // 一度生成したら「PDFを生成」ボタンを白背景・青文字に
