@@ -40,9 +40,13 @@ koujikanri/
 ├── fonts/
 │   └── MPLUS1p-Regular.ttf       # 日本語フォント（TrueType/glyf、全埋め込み）
 └── icons/
-    ├── icon-192.png    # プレースホルダ（要差し替え）
-    └── icon-512.png    # プレースホルダ（要差し替え）
+    ├── icon-192.png         # アプリアイコン（青背景＋写真カード＋紙飛行機）
+    ├── icon-512.png         # 同 512px
+    └── apple-touch-icon.png # iOSホーム画面用 180px
 ```
+
+アイコンは `.claude/makeicon.js`（pdf-lib描画→poppler `pdftocairo`でPNG化）で生成。
+デザインは「工事写真帳PDFをメール送付」を表す：青背景＋白い写真カード（山/太陽＋PDFタグ）＋紙飛行機（送信）。
 
 PDF: `window.KojiPDF.generate({ job, company, photos, onProgress })` → Uint8Array。
 写真は canvas 経由で JPEG 化（HEIC/EXIF回転/サイズ最適化, 最大1600px）してから `embedJpg`。
@@ -95,7 +99,7 @@ PDF: `window.KojiPDF.generate({ job, company, photos, onProgress })` → Uint8Ar
 - **写真は溜め込まない**: 1工事ぶんの作業セッション内でのみ保持。終わったらクリア。
 - **日本語PDF**: pdf-lib は標準で日本語非対応。fontkit で日本語フォントをサブセット埋め込み（Phase 3）。
 - **メール送信は手動**: Web Share で共有シートに渡すところまで。宛先・件名の自動反映は iOS 側の制約あり（Phase 4 で最も確実な方法を選ぶ）。
-- **アイコン**: 現状 1×1 のプレースホルダPNG。正式アイコンに差し替えること。
+- **アイコン**: 作成済み（`.claude/makeicon.js` で再生成可）。
 
 ## 6. 動作確認（ローカル）
 

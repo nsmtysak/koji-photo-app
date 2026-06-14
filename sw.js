@@ -7,7 +7,7 @@
    ※ キャッシュを作り直したい時は CACHE_NAME のバージョンを上げる。
    =========================================================== */
 
-const CACHE_NAME = "koji-photo-app-v4";
+const CACHE_NAME = "koji-photo-app-v5";
 
 const APP_SHELL = [
   "./",
@@ -21,6 +21,7 @@ const APP_SHELL = [
   "./manifest.json",
   "./icons/icon-192.png",
   "./icons/icon-512.png",
+  "./icons/apple-touch-icon.png",
 ];
 
 // インストール: App Shell を事前キャッシュ（オフライン初回用）
