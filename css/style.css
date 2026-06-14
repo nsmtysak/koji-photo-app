@@ -376,6 +376,13 @@ body {
   margin-bottom: 12px;
 }
 
+/* 下部の操作ボタン（生成 / 開く / クリア）の間隔 */
+#generate-pdf,
+#open-pdf,
+#clear-all {
+  margin-top: 12px;
+}
+
 .pdf-result {
   margin-top: 12px;
   display: flex;

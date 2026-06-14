@@ -742,9 +742,7 @@
     const shareBtn = document.createElement("button");
     shareBtn.type = "button";
     shareBtn.className = "btn btn--block";
-    shareBtn.textContent = canShareFile
-      ? "PDFを添付してメール送付"
-      : "PDFを保存（ダウンロード）";
+    shareBtn.textContent = canShareFile ? "PDFを送る" : "PDFを保存（ダウンロード）";
 
     const status = document.createElement("p");
     status.className = "send-box__status is-hidden";
@@ -762,8 +760,8 @@
     const note = document.createElement("p");
     note.className = "send-box__note";
     note.textContent = canShareFile
-      ? "共有シートで“メール”を選ぶと PDF が自動で添付されます（保存も手動添付も不要）。宛先は自動でコピーされるので、メールの宛先欄に貼り付けるだけです。（iOSの制約で宛先の自動入力だけはできません）"
-      : "「PDFを保存」でダウンロード後、メールに添付してください。";
+      ? "宛先を入れて「PDFを送る」を押すと、入力した宛先が自動でコピーされ、メール送付画面の宛先欄に貼り付け（ペースト）できます。表示中の件名はメールのタイトルとして挿入されます。"
+      : "「PDFを保存」でダウンロード後、メールに添付してください。表示中の件名はメールのタイトルに使われます。";
 
     box.append(toRow, subjRow, shareBtn, status, note);
     return box;
