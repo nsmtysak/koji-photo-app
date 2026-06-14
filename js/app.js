@@ -683,9 +683,19 @@
   }
 
   // PDFを共有・保存（共有シート）。メール添付や「"ファイル"に保存」が選べる。
+  // 共有シートのメールでは宛先を自動入力できないため、先に宛先をクリップボードへ
+  // コピーしておく（メールの宛先欄に貼り付けるだけで済む）。
   // 非対応環境: ダウンロード保存にフォールバック。
   async function sharePdf(file, subject, to) {
-    if (to) saveRecent(to);
+    to = (to || "").trim();
+    if (to) {
+      saveRecent(to);
+      try {
+        await navigator.clipboard.writeText(to);
+      } catch (e) {
+        /* 失敗しても共有は続行 */
+      }
+    }
     if (navigator.canShare && navigator.canShare({ files: [file] })) {
       try {
         await navigator.share({
@@ -753,31 +763,42 @@
     subjCopy.addEventListener("click", () => copyText(subject, subjCopy));
     subjRow.append(subjLabel, subjVal, subjCopy);
 
-    // 主役: PDFを添付して送る（共有シート → メールでPDFが添付される）
+    // 主役: PDFを添付して送る（共有シート → メールでPDFが自動添付）
+    // タップ時に宛先をクリップボードへ自動コピー → メールの宛先に貼り付けるだけ。
     const shareBtn = document.createElement("button");
     shareBtn.type = "button";
     shareBtn.className = "btn btn--block";
     shareBtn.textContent = canShareFile
       ? "PDFを添付してメール送付"
       : "PDFを保存（ダウンロード）";
-    shareBtn.addEventListener("click", () =>
-      sharePdf(file, subject, toInput.value)
-    );
+
+    const status = document.createElement("p");
+    status.className = "send-box__status is-hidden";
+
+    shareBtn.addEventListener("click", async () => {
+      const to = toInput.value.trim();
+      if (canShareFile && to) {
+        status.textContent =
+          "宛先「" + to + "」をコピーしました。メールの宛先欄を長押し→ペーストで貼り付けてください。";
+        status.classList.remove("is-hidden");
+      }
+      await sharePdf(file, subject, toInput.value);
+    });
 
     // 副: 宛先・件名つきでメール作成（mailtoのため添付は不可）
     const mailBtn = document.createElement("button");
     mailBtn.type = "button";
     mailBtn.className = "btn btn--ghost btn--block";
-    mailBtn.textContent = "宛先・件名でメール作成（添付なし）";
+    mailBtn.textContent = "宛先・件名だけでメール作成（添付なし）";
     mailBtn.addEventListener("click", () => composeMail(toInput.value, subject));
 
     const note = document.createElement("p");
     note.className = "send-box__note";
     note.textContent = canShareFile
-      ? "「PDFを添付してメール送付」: 共有シートで“メール”を選ぶとPDFが添付されます（宛先は自動入力されないため、上の宛先を長押しコピーして貼り付け）。／「メール作成（添付なし）」: 宛先・件名は入りますがPDFは添付されません。"
-      : "「PDFを保存」でダウンロード後、メールに手動で添付してください。「メール作成（添付なし）」は宛先・件名のみ入ります。";
+      ? "おすすめは「PDFを添付してメール送付」。共有シートで“メール”を選ぶと PDF が自動で添付され、保存も手動添付も不要です。宛先は自動でコピーされるので、メールの宛先欄に貼り付けるだけ。（iOSの制約で宛先の自動入力だけはできません）"
+      : "「PDFを保存」でダウンロード後、メールに添付してください。「メール作成」は宛先・件名のみ入ります（PDFは添付されません）。";
 
-    box.append(toRow, subjRow, shareBtn, mailBtn, note);
+    box.append(toRow, subjRow, shareBtn, status, mailBtn, note);
     return box;
   }
 

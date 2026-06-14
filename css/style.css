@@ -437,6 +437,16 @@ body {
   color: var(--text-sub);
 }
 
+.send-box__status {
+  margin: 0;
+  padding: 8px 10px;
+  background: rgba(0, 122, 255, 0.1);
+  border-radius: 8px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--accent-dark);
+}
+
 /* ===== カード / フォーム共通 ===== */
 .card {
   background: var(--surface);
