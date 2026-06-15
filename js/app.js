@@ -26,6 +26,7 @@
     bodyTpl: "koji.bodyTemplates",
     cats: "koji.categories",
     perPage: "koji.perPage",
+    showDate: "koji.showDate", // 撮影日をPDFに表示するか（true/false）
     session: "koji.session", // 写真の並び順・区分（本体はIndexedDB）
   };
 
@@ -138,6 +139,8 @@
       return { list: DEFAULT_BODY_TPL.list.slice(), selected: 0 };
     })(),
     perPage: [2, 3, 4].indexOf(load(LS.perPage, 3)) >= 0 ? load(LS.perPage, 3) : 3,
+    // 撮影日をPDFに表示するか（既定: 表示する）
+    showDate: load(LS.showDate, true) === false ? false : true,
   };
 
   // 一度だけ: 新しく既定に加えた「部材」を、未登録なら「施工前」の後に追加
@@ -219,6 +222,7 @@
     catAddBtn: $("cat-add-btn"),
     catReset: $("cat-reset"),
     perPage: $("per-page"),
+    showDate: $("show-date"),
   };
 
   /* ===========================================================
@@ -372,6 +376,7 @@
       },
       cats: state.cats.slice(),
       perPage: state.perPage,
+      showDate: state.showDate,
     };
     els.settings.classList.remove("is-hidden");
     document.body.classList.add("no-scroll");
@@ -396,6 +401,8 @@
       saveBodyTpl();
       state.perPage = s.perPage;
       save(LS.perPage, state.perPage);
+      state.showDate = s.showDate;
+      save(LS.showDate, state.showDate);
 
       // 画面に反映し直す
       els.coName.value = state.company.name || "";
@@ -407,6 +414,7 @@
       renderCats();
       renderBodyTpls();
       syncPerPage();
+      syncShowDate();
       renderPhotos();
     }
     settingsSnapshot = null;
@@ -452,6 +460,16 @@
     });
     syncPerPage();
 
+    // 撮影日の表示有無（有/無）
+    els.showDate.querySelectorAll(".segmented__btn").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        state.showDate = btn.dataset.value === "1";
+        save(LS.showDate, state.showDate);
+        syncShowDate();
+      });
+    });
+    syncShowDate();
+
     renderCats();
   }
 
@@ -460,6 +478,15 @@
       btn.classList.toggle(
         "is-active",
         parseInt(btn.dataset.value, 10) === state.perPage
+      );
+    });
+  }
+
+  function syncShowDate() {
+    els.showDate.querySelectorAll(".segmented__btn").forEach((btn) => {
+      btn.classList.toggle(
+        "is-active",
+        (btn.dataset.value === "1") === state.showDate
       );
     });
   }
@@ -592,11 +619,13 @@
     const order = state.photos.map((p) => p.id);
     const cats = {};
     const dates = {};
+    const notes = {};
     state.photos.forEach((p) => {
       if (p.category) cats[p.id] = p.category;
       if (p.date) dates[p.id] = p.date;
+      if (p.note) notes[p.id] = p.note;
     });
-    save(LS.session, { order: order, cats: cats, dates: dates });
+    save(LS.session, { order: order, cats: cats, dates: dates, notes: notes });
   }
 
   // 起動時: IndexedDBから写真を復元（再読み込み対策）
@@ -613,6 +642,7 @@
         url: URL.createObjectURL(blob),
         category: (s.cats && s.cats[id]) || "",
         date: (s.dates && s.dates[id]) || "",
+        note: (s.notes && s.notes[id]) || "",
       });
     }
     if (restored.length === 0) return;
@@ -637,8 +667,9 @@
         file: file,
         url: URL.createObjectURL(file),
         // 工事件名・工事場所は工事情報の共通値を使うため写真ごとには持たない。
-        // 写真ごとに設定するのは施工区分のみ。日付は写真データから参照。
+        // 写真ごとに設定するのは施工区分（選択）と自由入力のみ。日付は写真データから参照。
         category: "",
+        note: "",
         date: fileToDate(file),
       });
       IDB.put(id, file); // 本体を退避
@@ -767,22 +798,12 @@
     const body = document.createElement("div");
     body.className = "photo-item__body";
 
-    // 施工区分: 自由入力 + 候補チップ
+    // 施工区分（選択）: 候補チップをタップで選択（再タップで解除）
     const catWrap = document.createElement("div");
     catWrap.className = "pfield";
     const catLabel = document.createElement("span");
     catLabel.className = "pfield__label";
-    catLabel.textContent = "施工区分";
-    const catInput = document.createElement("input");
-    catInput.type = "text";
-    catInput.className = "pfield__input";
-    catInput.value = photo.category || "";
-    catInput.placeholder = "選択または自由入力";
-    catInput.addEventListener("input", () => {
-      photo.category = catInput.value;
-      syncChips(chips, photo.category);
-      saveSession();
-    });
+    catLabel.textContent = "施工区分（選択）";
 
     const chips = document.createElement("div");
     chips.className = "chips";
@@ -803,21 +824,20 @@
       addChip.className = "chip chip--add";
       addChip.textContent = "＋ 追加";
       addChip.addEventListener("click", () => {
-        const v = prompt("追加する施工区分を入力", catInput.value.trim());
+        const v = prompt("追加する施工区分を入力", "");
         if (v != null) addCandidateValue(v);
       });
       chips.appendChild(addChip);
     } else {
-      // 通常モード: タップで選択
+      // 通常モード: タップで選択（選択済みを再タップで解除）
       state.cats.forEach((cat) => {
         const chip = document.createElement("button");
         chip.type = "button";
         chip.className = "chip";
         chip.textContent = cat;
         chip.addEventListener("click", () => {
-          photo.category = cat;
-          catInput.value = cat;
-          syncChips(chips, cat);
+          photo.category = photo.category === cat ? "" : cat;
+          syncChips(chips, photo.category);
           saveSession();
         });
         chips.appendChild(chip);
@@ -841,9 +861,26 @@
       catTools.appendChild(hint);
     }
 
-    catWrap.append(catLabel, catInput, chips, catTools);
+    catWrap.append(catLabel, chips, catTools);
 
-    body.append(catWrap);
+    // 自由入力: 選択肢とは別の行としてPDFに表示される
+    const noteWrap = document.createElement("div");
+    noteWrap.className = "pfield";
+    const noteLabel = document.createElement("span");
+    noteLabel.className = "pfield__label";
+    noteLabel.textContent = "自由入力";
+    const noteInput = document.createElement("input");
+    noteInput.type = "text";
+    noteInput.className = "pfield__input";
+    noteInput.value = photo.note || "";
+    noteInput.placeholder = "例: KYミーティング実施";
+    noteInput.addEventListener("input", () => {
+      photo.note = noteInput.value;
+      saveSession();
+    });
+    noteWrap.append(noteLabel, noteInput);
+
+    body.append(catWrap, noteWrap);
     li.append(head, body);
     return li;
   }
@@ -1037,6 +1074,7 @@
         company: state.company,
         photos: state.photos,
         perPage: state.perPage,
+        showDate: state.showDate,
         onProgress: setLabel,
       });
 
