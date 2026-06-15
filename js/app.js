@@ -873,7 +873,6 @@
     noteInput.type = "text";
     noteInput.className = "pfield__input";
     noteInput.value = photo.note || "";
-    noteInput.placeholder = "例: KYミーティング実施";
     noteInput.addEventListener("input", () => {
       photo.note = noteInput.value;
       saveSession();
