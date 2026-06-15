@@ -538,6 +538,17 @@ body {
   border-color: var(--accent);
 }
 
+/* 読み取り専用（表示のみ・編集不可） */
+.field__input[readonly] {
+  background: var(--bg);
+  color: var(--text-sub);
+  border-color: var(--border);
+  cursor: default;
+}
+.field__input[readonly]:focus {
+  border-color: var(--border);
+}
+
 .field__hint {
   margin: 4px 0 0;
   font-size: 12px;
