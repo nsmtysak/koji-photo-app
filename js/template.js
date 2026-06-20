@@ -26,13 +26,35 @@
     for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
     return bytes;
   }
+  // URLを短くするため、キー名を持たない配列（位置）形式で格納する。
+  //   [ v, id, [orderNo,name,place], customer, [ [cat,note], ... ] ]
+  // decode は app.js が扱いやすいオブジェクト形に戻す（旧オブジェクト形式も互換で受ける）。
   function encode(obj) {
-    const json = JSON.stringify(obj);
-    return b64urlEncode(new TextEncoder().encode(json));
+    const job = obj.job || {};
+    const arr = [
+      obj.v || 1,
+      obj.id || "",
+      [job.orderNo || "", job.name || "", job.place || ""],
+      obj.customer || "",
+      (obj.points || []).map((p) => [p.cat || "", p.note || ""]),
+    ];
+    return b64urlEncode(new TextEncoder().encode(JSON.stringify(arr)));
   }
   function decode(str) {
     const json = new TextDecoder().decode(b64urlDecode(str));
-    return JSON.parse(json);
+    const parsed = JSON.parse(json);
+    if (!Array.isArray(parsed)) return parsed; // 旧オブジェクト形式（互換）
+    const job = parsed[2] || [];
+    return {
+      v: parsed[0],
+      id: parsed[1] || "",
+      job: { orderNo: job[0] || "", name: job[1] || "", place: job[2] || "" },
+      customer: parsed[3] || "",
+      points: (parsed[4] || []).map((a) => ({
+        cat: (a && a[0]) || "",
+        note: (a && a[1]) || "",
+      })),
+    };
   }
 
   function genId() {
@@ -261,18 +283,24 @@
       return;
     }
     const url = buildUrl();
-    els.url.value = url;
+    // 何のリンクか分かるように「工事名／工事場所」を見出しに付けて共有・コピーする
+    const head = [els.name.value.trim(), els.place.value.trim()]
+      .filter(Boolean)
+      .join("\n");
+    const shareText = head ? head + "\n\n" + url : url;
+
+    els.url.value = shareText;
     els.length.textContent = "リンクの長さ: 約 " + url.length + " 文字";
     els.result.classList.remove("is-hidden");
 
     // 同一のユーザー操作内で「コピー」→「共有シート」を実行する。
     // （await を挟むと iOS で共有がユーザー操作扱いされなくなるため待たない）
     try {
-      if (navigator.clipboard) navigator.clipboard.writeText(url);
+      if (navigator.clipboard) navigator.clipboard.writeText(shareText);
     } catch (e) {
       /* noop */
     }
-    shareLink(url);
+    shareLink(shareText);
   }
 
   /* ---------- 開く / 閉じる ---------- */
