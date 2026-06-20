@@ -28,6 +28,7 @@
     perPage: "koji.perPage",
     showDate: "koji.showDate", // 撮影日をPDFに表示するか（true/false）
     session: "koji.session", // 写真の並び順・区分（本体はIndexedDB）
+    activeTemplate: "koji.activeTemplate", // 協力会社側: 現在の案件の撮影指示 {id,customer,points}
   };
 
   function load(key, fallback) {
@@ -141,6 +142,11 @@
     perPage: [2, 3, 4].indexOf(load(LS.perPage, 3)) >= 0 ? load(LS.perPage, 3) : 3,
     // 撮影日をPDFに表示するか（既定: 表示する）
     showDate: load(LS.showDate, true) === false ? false : true,
+    // 協力会社側: リンクで受け取った撮影指示（無ければ null）
+    activeTemplate: (function () {
+      const t = load(LS.activeTemplate, null);
+      return t && t.id && Array.isArray(t.points) ? t : null;
+    })(),
   };
 
   // 一度だけ: 新しく既定に加えた「部材」を、未登録なら「施工前」の後に追加
@@ -192,6 +198,11 @@
     jobToggle: $("job-toggle"),
     jobBody: $("job-body"),
     jobSummary: $("job-summary"),
+    // 撮影指示（協力会社向け）＋作成ボタン（元請け向け）
+    createLink: $("create-link"),
+    instruction: $("instruction"),
+    instructionCustomer: $("instruction-customer"),
+    instructionList: $("instruction-list"),
     // 写真
     input: $("photo-input"),
     list: $("photo-list"),
@@ -603,6 +614,152 @@
   }
 
   /* ===========================================================
+     撮影指示テンプレート（協力会社側: リンクで受け取った指示）
+     =========================================================== */
+  // 写真の区分チップに使う候補。指示がある間は指示の区分（重複排除・順序保持）を、
+  // 無ければ協力会社自身の候補（state.cats）を使う。
+  function activeCats() {
+    if (state.activeTemplate) {
+      const seen = {};
+      const out = [];
+      state.activeTemplate.points.forEach((p) => {
+        const c = (p.cat || "").trim();
+        if (c && !seen[c]) {
+          seen[c] = 1;
+          out.push(c);
+        }
+      });
+      if (out.length) return out;
+    }
+    return state.cats;
+  }
+
+  // その区分の写真が1枚以上あるか（進捗チェック用）
+  function isCatShot(cat) {
+    return state.photos.some((p) => p.category === cat);
+  }
+
+  // 受け取った指示を取り込む（工事情報を流し込み、指示を保存）
+  function applyTemplate(tpl) {
+    state.job = {
+      orderNo: (tpl.job && tpl.job.orderNo) || "",
+      name: (tpl.job && tpl.job.name) || "",
+      place: (tpl.job && tpl.job.place) || "",
+    };
+    save(LS.job, state.job);
+    els.jobOrderNo.value = state.job.orderNo;
+    els.jobName.value = state.job.name;
+    els.jobPlace.value = state.job.place;
+
+    state.activeTemplate = {
+      id: tpl.id,
+      customer: tpl.customer || "",
+      points: Array.isArray(tpl.points) ? tpl.points : [],
+    };
+    save(LS.activeTemplate, state.activeTemplate);
+
+    renderInstruction();
+    renderJobInfo();
+    renderPhotos();
+  }
+
+  // 起動時: URLの #t=... を取り込む。hashは即除去（プレビューから戻った
+  // 再読み込みで初期値に戻る不具合を防ぐ）。A案: 同じ指示なら作業を継続する。
+  function processIncomingTemplate() {
+    const m = (location.hash || "").match(/[#&]t=([^&]+)/);
+    if (!m) return;
+
+    // 何があっても hash は除去（再適用を防ぐ）
+    try {
+      history.replaceState(null, "", location.pathname + location.search);
+    } catch (e) {
+      /* noop */
+    }
+
+    let tpl = null;
+    try {
+      tpl = window.KojiTemplate && window.KojiTemplate.decode(m[1]);
+    } catch (e) {
+      tpl = null;
+    }
+    if (!tpl || !tpl.id) return;
+
+    // 同じ指示が既に有効 → 作業を継続（再適用しない）
+    if (state.activeTemplate && state.activeTemplate.id === tpl.id) return;
+
+    // 別の指示。作業中データがあれば破棄確認（A案: 不意の消失を防ぐ）
+    const prevSession = load(LS.session, null);
+    const hasWork =
+      !!(state.job.orderNo || state.job.name || state.job.place) ||
+      (prevSession && Array.isArray(prevSession.order) && prevSession.order.length > 0);
+
+    if (hasWork) {
+      const ok = confirm(
+        "新しい撮影指示リンクを開きました。\n現在の作業内容（写真・工事情報）を破棄して、この指示で新しく始めますか？"
+      );
+      if (!ok) return; // 現在の作業を保持し、この指示は無視
+      // 破棄: 写真本体・セッション・指示をクリア（restoreSession で復元されないように）
+      state.photos.forEach((p) => URL.revokeObjectURL(p.url));
+      state.photos = [];
+      IDB.clear();
+      try {
+        localStorage.removeItem(LS.session);
+      } catch (e) {
+        /* noop */
+      }
+    }
+
+    applyTemplate(tpl);
+  }
+
+  // 撮影指示カード（協力会社向け）の描画
+  function renderInstruction() {
+    const t = state.activeTemplate;
+    if (!t) {
+      els.instruction.classList.add("is-hidden");
+      return;
+    }
+    els.instruction.classList.remove("is-hidden");
+
+    if (t.customer) {
+      els.instructionCustomer.textContent = "顧客: " + t.customer;
+      els.instructionCustomer.classList.remove("is-hidden");
+    } else {
+      els.instructionCustomer.classList.add("is-hidden");
+    }
+
+    els.instructionList.innerHTML = "";
+    const frag = document.createDocumentFragment();
+    t.points.forEach((p) => {
+      const cat = (p.cat || "").trim();
+      const li = document.createElement("li");
+      li.className = "instruction-item";
+
+      const shot = cat && isCatShot(cat);
+      const badge = document.createElement("span");
+      badge.className = "instruction-item__badge" + (shot ? " is-shot" : "");
+      badge.textContent = shot ? "✓" : "未";
+
+      const body = document.createElement("div");
+      body.className = "instruction-item__body";
+      const catEl = document.createElement("span");
+      catEl.className = "instruction-item__cat";
+      catEl.textContent = cat || "（区分未指定）";
+      body.appendChild(catEl);
+      if (p.memo && p.memo.trim()) {
+        const memoEl = document.createElement("span");
+        memoEl.className = "instruction-item__memo";
+        memoEl.textContent = p.memo.trim();
+        body.appendChild(memoEl);
+      }
+
+      li.append(badge, body);
+      frag.appendChild(li);
+    });
+    els.instructionList.appendChild(frag);
+  }
+
+  /* ===========================================================
      写真
      =========================================================== */
   // ファイルの更新日時から日付文字列（YYYY/MM/DD）を得る（写真データ参照）
@@ -708,14 +865,14 @@
     renderPhotos();
   }
 
-  // 最初からやり直す: 写真・工事情報・PDF結果をリセット。
+  // 最初からやり直す: 写真・工事情報・撮影指示・PDF結果をリセット。
   // 設定（自社情報・メール雛形・区分タグ）は残す。
   function clearAll() {
     const hasJob = state.job.orderNo || state.job.name || state.job.place;
-    if (state.photos.length === 0 && !hasJob) return;
+    if (state.photos.length === 0 && !hasJob && !state.activeTemplate) return;
     if (
       !confirm(
-        "選択した写真と工事情報をリセットします。\n（設定・区分タグ・自社情報・メール雛形は残ります）\nよろしいですか？"
+        "選択した写真・工事情報・撮影指示をリセットします。\n（設定・区分タグ・自社情報・メール雛形は残ります）\nよろしいですか？"
       )
     )
       return;
@@ -733,6 +890,15 @@
     els.jobName.value = "";
     els.jobPlace.value = "";
     jobInfoCollapsed = false; // 工事情報を展開状態に戻す
+
+    // 撮影指示（協力会社側）も解除し、通常の区分候補に戻す
+    state.activeTemplate = null;
+    try {
+      localStorage.removeItem(LS.activeTemplate);
+    } catch (e) {
+      /* noop */
+    }
+    renderInstruction();
 
     // PDF結果
     if (lastPdfUrl) {
@@ -808,7 +974,7 @@
     const chips = document.createElement("div");
     chips.className = "chips";
 
-    if (catEditMode) {
+    if (catEditMode && !state.activeTemplate) {
       // 編集モード: 各候補は ✕ で削除、末尾の「＋追加」で候補を追加
       state.cats.forEach((cat) => {
         const chip = document.createElement("button");
@@ -830,7 +996,8 @@
       chips.appendChild(addChip);
     } else {
       // 通常モード: タップで選択（選択済みを再タップで解除）
-      state.cats.forEach((cat) => {
+      // 指示がある間は指示の区分を候補にする（activeCats）
+      activeCats().forEach((cat) => {
         const chip = document.createElement("button");
         chip.type = "button";
         chip.className = "chip";
@@ -839,29 +1006,33 @@
           photo.category = photo.category === cat ? "" : cat;
           syncChips(chips, photo.category);
           saveSession();
+          renderInstruction(); // 指示カードの進捗✓を更新
         });
         chips.appendChild(chip);
       });
       syncChips(chips, photo.category);
     }
 
-    // 候補の編集トグル
-    const catTools = document.createElement("div");
-    catTools.className = "cat-tools";
-    const editToggle = document.createElement("button");
-    editToggle.type = "button";
-    editToggle.className = "link-btn";
-    editToggle.textContent = catEditMode ? "完了" : "候補を編集";
-    editToggle.addEventListener("click", toggleCatEdit);
-    catTools.appendChild(editToggle);
-    if (catEditMode) {
-      const hint = document.createElement("span");
-      hint.className = "cat-tools__hint";
-      hint.textContent = "✕で削除 ／「＋追加」で候補を追加";
-      catTools.appendChild(hint);
-    }
+    catWrap.append(catLabel, chips);
 
-    catWrap.append(catLabel, chips, catTools);
+    // 候補の編集トグル（協力会社自身の候補のとき。指示中は編集不可）
+    if (!state.activeTemplate) {
+      const catTools = document.createElement("div");
+      catTools.className = "cat-tools";
+      const editToggle = document.createElement("button");
+      editToggle.type = "button";
+      editToggle.className = "link-btn";
+      editToggle.textContent = catEditMode ? "完了" : "候補を編集";
+      editToggle.addEventListener("click", toggleCatEdit);
+      catTools.appendChild(editToggle);
+      if (catEditMode) {
+        const hint = document.createElement("span");
+        hint.className = "cat-tools__hint";
+        hint.textContent = "✕で削除 ／「＋追加」で候補を追加";
+        catTools.appendChild(hint);
+      }
+      catWrap.appendChild(catTools);
+    }
 
     // 自由入力: 選択肢とは別の行としてPDFに表示される
     const noteWrap = document.createElement("div");
@@ -917,6 +1088,8 @@
       frag.appendChild(createRow(photo, i, total));
     });
     els.list.appendChild(frag);
+
+    renderInstruction(); // 指示カードの進捗（✓/未）を写真の状態に合わせて更新
   }
 
   /* ===========================================================
@@ -1141,8 +1314,16 @@
   els.generatePdf.addEventListener("click", generatePdf);
   els.generatePdfTop.addEventListener("click", generatePdf);
 
+  // 元請け用: 撮影指示リンク作成オーバーレイを開く
+  els.createLink.addEventListener("click", () => {
+    if (window.KojiTemplate) window.KojiTemplate.open();
+  });
+
   initJobInfo();
   initSettings();
+  // リンク(#t=...)で受け取った撮影指示を取り込む（restoreSession より前。
+  // hashは即除去し、プレビューから戻った再読み込みで初期値に戻らないようにする）
+  processIncomingTemplate();
   renderPhotos();
   restoreSession(); // 再読み込み時に作業中の写真を復元
   console.log("[koji] 工事写真台帳 起動（Phase 4）");
