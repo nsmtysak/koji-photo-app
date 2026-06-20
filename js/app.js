@@ -216,7 +216,6 @@
     pdfResult: $("pdf-result"),
     // 設定
     openSettings: $("open-settings"),
-    openSettingsBottom: $("open-settings-bottom"),
     settingsSave: $("settings-save"),
     settingsCancel: $("settings-cancel"),
     settings: $("settings"),
@@ -445,7 +444,6 @@
     renderBodyTpls();
 
     els.openSettings.addEventListener("click", openSettings);
-    els.openSettingsBottom.addEventListener("click", openSettings);
     els.settingsSave.addEventListener("click", () => closeSettings(false));
     els.settingsCancel.addEventListener("click", () => closeSettings(true));
 
@@ -1076,13 +1074,9 @@
     return li;
   }
 
-  // 「最初からやり直す」ボタンの表示制御（写真または工事情報があれば表示）
+  // クリアはヘッダーに常設（何も無いときは clearAll() が早期returnする）。
   function updateClearBtn() {
-    const hasJob = !!(state.job.orderNo || state.job.name || state.job.place);
-    els.clearAll.classList.toggle(
-      "is-hidden",
-      state.photos.length === 0 && !hasJob
-    );
+    /* ヘッダーのクリアボタンは常時表示のため何もしない */
   }
 
   function syncChips(chipsEl, value) {

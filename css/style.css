@@ -79,6 +79,10 @@ body {
   justify-self: start;
 }
 
+.header-btn--center {
+  justify-self: center;
+}
+
 .header-btn--right {
   justify-self: end;
 }
