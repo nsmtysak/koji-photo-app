@@ -283,8 +283,8 @@
       return;
     }
     const url = buildUrl();
-    // 何のリンクか分かるように「工事名／工事場所」を見出しに付けて共有・コピーする
-    const head = [els.name.value.trim(), els.place.value.trim()]
+    // 何のリンクか分かるように「顧客名／工事名」を見出しに付けて共有・コピーする
+    const head = [els.customer.value.trim(), els.name.value.trim()]
       .filter(Boolean)
       .join("\n");
     const shareText = head ? head + "\n\n" + url : url;
