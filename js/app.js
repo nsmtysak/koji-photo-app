@@ -639,6 +639,15 @@
     return state.photos.some((p) => p.category === cat);
   }
 
+  // 撮影指示で、その区分に紐づく自由入力（note）を返す（無ければ ""）
+  function templateNoteFor(cat) {
+    if (!state.activeTemplate || !cat) return "";
+    const pt = state.activeTemplate.points.find(
+      (p) => (p.cat || "").trim() === cat
+    );
+    return pt ? (pt.note || pt.memo || "").trim() : "";
+  }
+
   // 受け取った指示を取り込む（工事情報を流し込み、指示を保存）
   function applyTemplate(tpl) {
     state.job = {
@@ -746,10 +755,12 @@
       catEl.className = "instruction-item__cat";
       catEl.textContent = cat || "（区分未指定）";
       body.appendChild(catEl);
-      if (p.memo && p.memo.trim()) {
+      // 自由入力（note）。旧リンク互換で memo も拾う。
+      const noteText = ((p.note || p.memo) || "").trim();
+      if (noteText) {
         const memoEl = document.createElement("span");
         memoEl.className = "instruction-item__memo";
-        memoEl.textContent = p.memo.trim();
+        memoEl.textContent = noteText;
         body.appendChild(memoEl);
       }
 
@@ -1004,9 +1015,19 @@
         chip.textContent = cat;
         chip.addEventListener("click", () => {
           photo.category = photo.category === cat ? "" : cat;
+          // 撮影指示に自由入力があり、写真の自由入力が空なら自動反映（PDFに乗る）
+          let filled = false;
+          if (photo.category && !(photo.note || "").trim()) {
+            const note = templateNoteFor(photo.category);
+            if (note) {
+              photo.note = note;
+              filled = true;
+            }
+          }
           syncChips(chips, photo.category);
           saveSession();
           renderInstruction(); // 指示カードの進捗✓を更新
+          if (filled) renderPhotos(); // 自由入力欄に反映するため再描画
         });
         chips.appendChild(chip);
       });

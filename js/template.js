@@ -89,7 +89,7 @@
   }
 
   /* ---------- 状態（作成中のポイント一覧） ---------- */
-  let points = []; // [{ cat, memo }]
+  let points = []; // [{ cat, note }]
   let els = null;
 
   function $(id) {
@@ -127,7 +127,11 @@
       const main = document.createElement("div");
       main.className = "lc-point__main";
 
-      // 区分: 既存の施工区分をチップで選択（写真側と同じイメージ）。再タップで解除。
+      // --- 施工区分（選択）: 写真側と同じイメージ。チップ＋候補に無いときの自由入力 ---
+      const catLabel = document.createElement("span");
+      catLabel.className = "field__label";
+      catLabel.textContent = "施工区分（選択）";
+
       const chips = document.createElement("div");
       chips.className = "chips lc-point__chips";
       cats.forEach((c) => {
@@ -138,16 +142,16 @@
         chip.addEventListener("click", () => {
           pt.cat = pt.cat === c ? "" : c;
           hideResult();
-          renderPoints(); // チップ選択と自由入力欄の表示を同期
+          renderPoints(); // チップ選択と「その他の区分」欄の表示を同期
         });
         chips.appendChild(chip);
       });
 
-      // 自由入力（その他の区分）。候補に無い値のときだけ表示する。
+      // その他の区分（候補に無い区分を入力。区分のひとつなのでチップとは排他）
       const free = document.createElement("input");
       free.type = "text";
       free.className = "field__input lc-point__free";
-      free.placeholder = "自由入力（その他の区分）";
+      free.placeholder = "その他の区分（候補に無いとき）";
       free.value = cats.indexOf(pt.cat) === -1 ? pt.cat || "" : "";
       free.addEventListener("input", () => {
         pt.cat = free.value;
@@ -158,18 +162,22 @@
         });
       });
 
-      // 撮影メモ
-      const memo = document.createElement("input");
-      memo.type = "text";
-      memo.className = "field__input lc-point__memo";
-      memo.value = pt.memo || "";
-      memo.placeholder = "撮影メモ（例: 全景がわかるように）";
-      memo.addEventListener("input", () => {
-        pt.memo = memo.value;
+      // --- 自由入力: 区分とは独立（AND）。協力会社の写真の自由入力に反映される ---
+      const noteLabel = document.createElement("span");
+      noteLabel.className = "field__label";
+      noteLabel.textContent = "自由入力";
+
+      const note = document.createElement("input");
+      note.type = "text";
+      note.className = "field__input lc-point__note";
+      note.value = pt.note || "";
+      note.placeholder = "自由入力（写真の文言。例: 全景がわかるように）";
+      note.addEventListener("input", () => {
+        pt.note = note.value;
         hideResult();
       });
 
-      main.append(chips, free, memo);
+      main.append(catLabel, chips, free, noteLabel, note);
 
       // 並べ替え・削除
       const tools = document.createElement("div");
@@ -200,7 +208,7 @@
   }
 
   function addPoint() {
-    points.push({ cat: "", memo: "" });
+    points.push({ cat: "", note: "" });
     hideResult();
     renderPoints();
   }
@@ -226,8 +234,8 @@
   /* ---------- リンク生成 ---------- */
   function buildUrl() {
     const cleanPoints = points
-      .map((p) => ({ cat: (p.cat || "").trim(), memo: (p.memo || "").trim() }))
-      .filter((p) => p.cat || p.memo);
+      .map((p) => ({ cat: (p.cat || "").trim(), note: (p.note || "").trim() }))
+      .filter((p) => p.cat || p.note);
 
     const tpl = {
       v: 1,
@@ -285,7 +293,7 @@
     }
 
     // 状態リセット（作るたび新しい指示として開く）
-    points = [{ cat: "", memo: "" }];
+    points = [{ cat: "", note: "" }];
     els.orderNo.value = "";
     els.customer.value = "";
     els.name.value = "";
