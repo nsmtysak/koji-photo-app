@@ -41,18 +41,23 @@ body {
   min-height: 100dvh;
 }
 
-/* ===== ヘッダー ===== */
+/* ===== ヘッダー =====
+   html/body の overflow-x:hidden があると position:sticky が壊れるため、
+   確実にスクロール追従させるよう position:fixed で固定する。
+   固定で浮くぶん、本文(.app-main)に同じ高さの上余白を取る。 */
 .app-header {
-  position: sticky;
+  position: fixed;
   top: 0;
+  left: 0;
+  right: 0;
   z-index: 10;
-  padding: calc(var(--safe-top) + 12px) 8px 12px;
+  padding: calc(var(--safe-top) + 10px) 8px 10px;
   background: rgba(255, 255, 255, 0.85);
   backdrop-filter: saturate(180%) blur(20px);
   -webkit-backdrop-filter: saturate(180%) blur(20px);
   border-bottom: 0.5px solid var(--border);
   display: grid;
-  grid-template-columns: 1fr auto 1fr; /* 左ボタン / タイトル中央 / 右ボタン */
+  grid-template-columns: 1fr auto 1fr; /* 左 / 中央 / 右 */
   align-items: center;
 }
 
@@ -64,14 +69,19 @@ body {
   text-align: center;
 }
 
-/* ヘッダーの文字ボタン（撮影指示 / 設定） */
+/* ヘッダーの文字ボタン（クリア / 撮影指示 / 設定） */
 .header-btn {
-  min-height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 40px;
+  margin: 0;
   padding: 0 8px;
   border: none;
   background: transparent;
   color: var(--accent);
   font-size: 16px;
+  line-height: 1;
   cursor: pointer;
 }
 
@@ -89,7 +99,8 @@ body {
 
 /* ===== メイン ===== */
 .app-main {
-  padding: 16px;
+  /* 固定ヘッダー(safe-top + 上下padding10 + ボタン40 + border)ぶん上に余白 */
+  padding: calc(var(--safe-top) + 60px) 16px 16px;
   padding-bottom: calc(var(--safe-bottom) + 16px);
   max-width: 720px;
   margin: 0 auto;
@@ -400,12 +411,10 @@ body {
   margin-bottom: 12px;
 }
 
-/* 下段の各ボタンの間隔（写真追加 / 生成 / 開く / クリア / 設定） */
+/* 下段の各ボタンの間隔（写真追加 / 生成 / 開く） */
 #photo-add-bottom,
 #generate-pdf,
-#open-pdf,
-#clear-all,
-#open-settings-bottom {
+#open-pdf {
   margin-top: 12px;
 }
 

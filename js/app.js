@@ -1239,15 +1239,6 @@
       return;
     }
 
-    // 生成後に自動でPDFを表示するため、ユーザー操作（クリック）の文脈で
-    // 先に空タブを開いておく（iOSのポップアップブロック回避）。
-    let previewWin = null;
-    try {
-      previewWin = window.open("", "_blank");
-    } catch (e) {
-      previewWin = null;
-    }
-
     const genBtns = [els.generatePdf, els.generatePdfTop];
     genBtns.forEach((b) => (b.disabled = true));
     const orgLabel = "PDFを生成";
@@ -1294,23 +1285,15 @@
       els.pdfResult.append(sendBox, info);
       els.pdfResult.classList.remove("is-hidden");
 
-      // 「PDFを開く（プレビュー）」ボタンを表示・リンク更新
+      // 「PDFを開く（プレビュー）」ボタンを表示・リンク更新（自動では開かない。
+      // 自動で別タブを開くと、戻った時にPWAが再読み込みされ送付ボタンが消えるため）
       els.openPdf.href = lastPdfUrl;
       els.openPdf.classList.remove("is-hidden");
-
-      // 生成後に自動でPDFを表示（プレビューを押さなくても開く）
-      if (previewWin && !previewWin.closed) {
-        previewWin.location.href = lastPdfUrl;
-      } else {
-        // ポップアップがブロックされた場合は別タブで開く（アプリ画面は保持）
-        els.openPdf.click();
-      }
 
       // 一度生成したら「PDFを生成」ボタン（上下とも）を白背景・青文字に
       genBtns.forEach((b) => b.classList.add("btn--ghost"));
     } catch (e) {
       console.error("[koji] PDF生成エラー:", e);
-      if (previewWin && !previewWin.closed) previewWin.close();
       alert("PDFの生成に失敗しました: " + (e && e.message ? e.message : e));
     } finally {
       setLabel(orgLabel);
