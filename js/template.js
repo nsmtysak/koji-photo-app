@@ -40,14 +40,26 @@
   }
 
   /* ---------- 区分候補（localStorage から読む。app.js と同じキー） ---------- */
+  // app.js の DEFAULT_CATS と同じ既定（koji.categories 未保存の端末向けフォールバック）
+  const DEFAULT_CATS = [
+    "施工前",
+    "部材",
+    "解体前",
+    "解体後",
+    "施工中",
+    "隠蔽前",
+    "施工後",
+    "完了",
+  ];
   function loadCats() {
     try {
       const v = localStorage.getItem("koji.categories");
       const arr = v ? JSON.parse(v) : null;
-      return Array.isArray(arr) ? arr : [];
+      if (Array.isArray(arr) && arr.length) return arr;
     } catch (e) {
-      return [];
+      /* noop */
     }
+    return DEFAULT_CATS.slice();
   }
 
   /* ---------- コピー / 共有（app.js と同等の挙動を自前で持つ） ---------- */
@@ -95,7 +107,6 @@
       place: $("lc-place"),
       list: $("lc-points"),
       add: $("lc-point-add"),
-      catOptions: $("lc-cat-options"),
       generate: $("lc-generate"),
       result: $("lc-result"),
       url: $("lc-url"),
@@ -108,21 +119,44 @@
   /* ---------- ポイント一覧の描画 ---------- */
   function renderPoints() {
     els.list.innerHTML = "";
+    const cats = loadCats();
     const frag = document.createDocumentFragment();
     points.forEach((pt, i) => {
       const row = document.createElement("div");
       row.className = "lc-point";
 
-      // 区分（datalist で既存候補をサジェスト・自由入力も可）
-      const cat = document.createElement("input");
-      cat.type = "text";
-      cat.className = "field__input lc-point__cat";
-      cat.value = pt.cat || "";
-      cat.placeholder = "区分（例: 施工前）";
-      cat.setAttribute("list", "lc-cat-options");
-      cat.addEventListener("input", () => {
-        pt.cat = cat.value;
+      const main = document.createElement("div");
+      main.className = "lc-point__main";
+
+      // 区分: 既存の施工区分をチップで選択（写真側と同じイメージ）。再タップで解除。
+      const chips = document.createElement("div");
+      chips.className = "chips lc-point__chips";
+      cats.forEach((c) => {
+        const chip = document.createElement("button");
+        chip.type = "button";
+        chip.className = "chip" + (pt.cat === c ? " is-active" : "");
+        chip.textContent = c;
+        chip.addEventListener("click", () => {
+          pt.cat = pt.cat === c ? "" : c;
+          hideResult();
+          renderPoints(); // チップ選択と自由入力欄の表示を同期
+        });
+        chips.appendChild(chip);
+      });
+
+      // 自由入力（その他の区分）。候補に無い値のときだけ表示する。
+      const free = document.createElement("input");
+      free.type = "text";
+      free.className = "field__input lc-point__free";
+      free.placeholder = "自由入力（その他の区分）";
+      free.value = cats.indexOf(pt.cat) === -1 ? pt.cat || "" : "";
+      free.addEventListener("input", () => {
+        pt.cat = free.value;
         hideResult();
+        // 再描画せずチップの選択状態だけ即時同期（入力フォーカスを保つ）
+        Array.from(chips.children).forEach((ch) => {
+          ch.classList.toggle("is-active", ch.textContent === pt.cat);
+        });
       });
 
       // 撮影メモ
@@ -136,6 +170,8 @@
         hideResult();
       });
 
+      main.append(chips, free, memo);
+
       // 並べ替え・削除
       const tools = document.createElement("div");
       tools.className = "lc-point__tools";
@@ -147,7 +183,7 @@
       del.classList.add("photo-item__del");
       tools.append(up, down, del);
 
-      row.append(cat, memo, tools);
+      row.append(main, tools);
       frag.appendChild(row);
     });
     els.list.appendChild(frag);
@@ -186,16 +222,6 @@
 
   function hideResult() {
     if (els && els.result) els.result.classList.add("is-hidden");
-  }
-
-  /* ---------- 区分候補を datalist へ ---------- */
-  function fillCatOptions() {
-    els.catOptions.innerHTML = "";
-    loadCats().forEach((c) => {
-      const o = document.createElement("option");
-      o.value = c;
-      els.catOptions.appendChild(o);
-    });
   }
 
   /* ---------- リンク生成 ---------- */
@@ -260,7 +286,6 @@
     els.name.value = "";
     els.place.value = "";
     hideResult();
-    fillCatOptions();
     renderPoints();
 
     els.overlay.classList.remove("is-hidden");

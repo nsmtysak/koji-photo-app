@@ -822,23 +822,22 @@ body.no-scroll {
 .lc-point {
   display: grid;
   grid-template-columns: 1fr auto;
-  grid-template-areas:
-    "cat tools"
-    "memo tools";
-  gap: 6px 8px;
-  align-items: center;
+  gap: 8px;
+  align-items: start;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: #fff;
 }
 
-.lc-point__cat {
-  grid-area: cat;
-}
-
-.lc-point__memo {
-  grid-area: memo;
+.lc-point__main {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
 }
 
 .lc-point__tools {
-  grid-area: tools;
   display: flex;
   flex-direction: column;
   gap: 4px;
