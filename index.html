@@ -21,18 +21,17 @@
 </head>
 <body>
   <header class="app-header">
+    <button id="open-link-creator" class="header-btn header-btn--left" type="button">
+      撮影指示
+    </button>
     <h1 class="app-title">工事写真台帳</h1>
-    <button id="open-settings" class="header-btn" type="button" aria-label="設定">
+    <button id="open-settings" class="header-btn header-btn--right" type="button"
+      aria-label="設定">
       設定
     </button>
   </header>
 
   <main id="app" class="app-main">
-    <!-- 元請け用: 撮影指示リンクの作成 -->
-    <button id="create-link" class="btn btn--ghost btn--block" type="button">
-      撮影指示リンクを作成（元請け用）
-    </button>
-
     <!-- 撮影指示（協力会社向け。リンクで開いたときのみ表示） -->
     <section id="instruction" class="card instruction is-hidden" aria-label="撮影指示">
       <h2 class="card__title card__title--inline">撮影指示（元請けより）</h2>
@@ -234,8 +233,9 @@
   <div id="link-creator" class="overlay is-hidden" role="dialog" aria-modal="true"
     aria-label="撮影指示リンクの作成">
     <header class="overlay__header">
+      <span aria-hidden="true"></span>
       <h2 class="overlay__title">撮影指示リンクの作成</h2>
-      <button id="lc-cancel" class="header-btn" type="button">閉じる</button>
+      <button id="lc-cancel" class="header-btn header-btn--right" type="button">閉じる</button>
     </header>
 
     <div class="overlay__body">
@@ -273,18 +273,16 @@
         </button>
       </section>
 
-      <button id="lc-generate" class="btn btn--block" type="button">リンクを作成</button>
+      <button id="lc-send" class="btn btn--block" type="button">リンクを作成して共有</button>
 
       <section id="lc-result" class="card is-hidden" aria-label="作成したリンク">
         <h3 class="card__title">作成したリンク</h3>
         <textarea id="lc-url" class="field__input field__textarea" rows="3" readonly></textarea>
         <p id="lc-length" class="field__hint"></p>
-        <div class="lc-result__btns">
-          <button id="lc-copy" class="btn btn--block" type="button">リンクをコピー</button>
-          <button id="lc-share" class="btn btn--ghost btn--block" type="button">リンクを共有</button>
-        </div>
+        <button id="lc-copy" class="btn btn--ghost btn--block" type="button">リンクをコピー</button>
         <p class="card__note">
-          このリンクをLINE等で協力会社に送ってください。協力会社が開くと、工事情報が入力済みの状態で撮影指示が表示されます。
+          共有画面が出たら LINE を選んで協力会社に送ってください。
+          共有を閉じてしまった場合は「リンクをコピー」でコピーして貼り付けできます。
         </p>
       </section>
     </div>

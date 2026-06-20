@@ -198,8 +198,8 @@
     jobToggle: $("job-toggle"),
     jobBody: $("job-body"),
     jobSummary: $("job-summary"),
-    // 撮影指示（協力会社向け）＋作成ボタン（元請け向け）
-    createLink: $("create-link"),
+    // 撮影指示（協力会社向け）＋作成入口（元請け向け・ヘッダー）
+    openLinkCreator: $("open-link-creator"),
     instruction: $("instruction"),
     instructionCustomer: $("instruction-customer"),
     instructionList: $("instruction-list"),
@@ -1314,8 +1314,8 @@
   els.generatePdf.addEventListener("click", generatePdf);
   els.generatePdfTop.addEventListener("click", generatePdf);
 
-  // 元請け用: 撮影指示リンク作成オーバーレイを開く
-  els.createLink.addEventListener("click", () => {
+  // 元請け用: ヘッダー「撮影指示」から作成オーバーレイを開く
+  els.openLinkCreator.addEventListener("click", () => {
     if (window.KojiTemplate) window.KojiTemplate.open();
   });
 

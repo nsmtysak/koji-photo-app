@@ -107,11 +107,10 @@
       place: $("lc-place"),
       list: $("lc-points"),
       add: $("lc-point-add"),
-      generate: $("lc-generate"),
+      send: $("lc-send"),
       result: $("lc-result"),
       url: $("lc-url"),
       copy: $("lc-copy"),
-      share: $("lc-share"),
       length: $("lc-length"),
     };
   }
@@ -245,7 +244,8 @@
     return base + "#t=" + encode(tpl);
   }
 
-  function generate() {
+  // リンクを作成 → コピー → 共有シートを自動で起動（1タップで完結）
+  function createAndShare() {
     const hasName = els.name.value.trim();
     const hasPoints = points.some((p) => (p.cat || "").trim());
     if (!hasName && !hasPoints) {
@@ -256,9 +256,15 @@
     els.url.value = url;
     els.length.textContent = "リンクの長さ: 約 " + url.length + " 文字";
     els.result.classList.remove("is-hidden");
-    // 生成直後にURLを選択状態にして手動コピーもしやすく
-    els.url.focus();
-    els.url.select();
+
+    // 同一のユーザー操作内で「コピー」→「共有シート」を実行する。
+    // （await を挟むと iOS で共有がユーザー操作扱いされなくなるため待たない）
+    try {
+      if (navigator.clipboard) navigator.clipboard.writeText(url);
+    } catch (e) {
+      /* noop */
+    }
+    shareLink(url);
   }
 
   /* ---------- 開く / 閉じる ---------- */
@@ -269,9 +275,8 @@
     if (!els.overlay.dataset.wired) {
       els.cancel.addEventListener("click", close);
       els.add.addEventListener("click", addPoint);
-      els.generate.addEventListener("click", generate);
+      els.send.addEventListener("click", createAndShare);
       els.copy.addEventListener("click", () => copyText(els.url.value, els.copy));
-      els.share.addEventListener("click", () => shareLink(els.url.value));
       // 工事情報を編集したら結果URLは作り直しが必要なので隠す
       [els.orderNo, els.customer, els.name, els.place].forEach((inp) =>
         inp.addEventListener("input", hideResult)

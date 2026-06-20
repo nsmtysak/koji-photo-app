@@ -46,12 +46,14 @@ body {
   position: sticky;
   top: 0;
   z-index: 10;
-  padding: calc(var(--safe-top) + 12px) 16px 12px;
+  padding: calc(var(--safe-top) + 12px) 8px 12px;
   background: rgba(255, 255, 255, 0.85);
   backdrop-filter: saturate(180%) blur(20px);
   -webkit-backdrop-filter: saturate(180%) blur(20px);
   border-bottom: 0.5px solid var(--border);
-  text-align: center;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr; /* 左ボタン / タイトル中央 / 右ボタン */
+  align-items: center;
 }
 
 .app-title {
@@ -59,14 +61,11 @@ body {
   font-size: 17px;
   font-weight: 600;
   letter-spacing: 0.2px;
+  text-align: center;
 }
 
-/* ヘッダー右上の設定ボタンなど */
+/* ヘッダーの文字ボタン（撮影指示 / 設定） */
 .header-btn {
-  position: absolute;
-  top: 50%;
-  right: 12px;
-  transform: translateY(calc(-50% + var(--safe-top) / 2));
   min-height: 34px;
   padding: 0 8px;
   border: none;
@@ -74,6 +73,14 @@ body {
   color: var(--accent);
   font-size: 16px;
   cursor: pointer;
+}
+
+.header-btn--left {
+  justify-self: start;
+}
+
+.header-btn--right {
+  justify-self: end;
 }
 
 /* ===== メイン ===== */
@@ -843,9 +850,3 @@ body.no-scroll {
   gap: 4px;
 }
 
-.lc-result__btns {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  margin-top: 8px;
-}
