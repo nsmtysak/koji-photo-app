@@ -102,22 +102,26 @@ window.KojiPDF = (function () {
       color: COLOR_TEXT,
     });
 
-    // 情報テーブル（罫線付き）
+    // 情報テーブル（罫線付き）。工事場所は「顧客名＋工事場所」を2段表示。
     const rows = [
-      ["注文番号", job.orderNo || ""],
-      ["工事名", job.name || ""],
-      ["工事場所", job.place || ""],
+      { label: "注文番号", lines: [job.orderNo || ""] },
+      { label: "工事名", lines: [job.name || ""] },
+      { label: "工事場所", lines: [job.customer || "", job.place || ""] },
     ];
     const tableW = W - MARGIN * 2;
     const labelW = 110;
-    const rowH = 44;
+    const baseRowH = 44;
+    const tallRowH = 64; // 2段表示の行は枠を高く
     const tableTop = H - 230;
     const tableLeft = MARGIN;
     const valSize = 13;
     const labelSize = 12;
+    const maxValW = tableW - labelW - 24;
 
-    rows.forEach((row, i) => {
-      const top = tableTop - i * rowH;
+    let top = tableTop;
+    rows.forEach((row) => {
+      const multi = row.lines.length > 1;
+      const rowH = multi ? tallRowH : baseRowH;
       const bottom = top - rowH;
       // 行の外枠
       page.drawRectangle({
@@ -135,25 +139,35 @@ window.KojiPDF = (function () {
         thickness: 1,
         color: COLOR_LINE,
       });
-      // ラベル
-      page.drawText(row[0], {
+      // ラベル（縦中央）
+      page.drawText(row.label, {
         x: tableLeft + 12,
         y: bottom + (rowH - labelSize) / 2,
         size: labelSize,
         font,
         color: COLOR_SUB,
       });
-      // 値（長ければ縮小して1行に収める）
-      let vs = valSize;
-      const maxValW = tableW - labelW - 24;
-      while (vs > 8 && font.widthOfTextAtSize(row[1], vs) > maxValW) vs -= 0.5;
-      page.drawText(row[1], {
-        x: tableLeft + labelW + 12,
-        y: bottom + (rowH - vs) / 2,
-        size: vs,
-        font,
-        color: COLOR_TEXT,
-      });
+      // 値（空行は除外。複数行は縦中央にまとめて配置。各行は幅に合わせて縮小）
+      const shown = row.lines.filter((t) => t && t.length);
+      const lineGap = 6;
+      const n = shown.length;
+      if (n > 0) {
+        const blockH = n * valSize + (n - 1) * lineGap;
+        let lineTopY = bottom + (rowH + blockH) / 2;
+        shown.forEach((text) => {
+          let vs = valSize;
+          while (vs > 8 && font.widthOfTextAtSize(text, vs) > maxValW) vs -= 0.5;
+          page.drawText(text, {
+            x: tableLeft + labelW + 12,
+            y: lineTopY - valSize,
+            size: vs,
+            font,
+            color: COLOR_TEXT,
+          });
+          lineTopY -= valSize + lineGap;
+        });
+      }
+      top = bottom;
     });
 
     // 自社情報（下部・中央寄せ）
@@ -366,9 +380,9 @@ window.KojiPDF = (function () {
       }
 
       const texts = {
-        // 件名・場所は工事情報の共通値、区分・日付は写真ごと
+        // 件名は工事情報の共通値。場所は「顧客名＋工事場所」を2段表示。
         title: job.name || "",
-        place: job.place || "",
+        place: [job.customer, job.place].filter(Boolean).join("\n"),
         // 施工区分は「選択した区分」と「自由入力」を別々の行で表示する
         category: [photo.category, photo.note].filter(Boolean).join("\n"),
         date: photo.date || "",
