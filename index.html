@@ -63,6 +63,11 @@
             placeholder="例: ○○ビル空調更新工事" />
         </div>
         <div class="field">
+          <label class="field__label" for="job-customer">顧客名</label>
+          <input id="job-customer" class="field__input" type="text"
+            placeholder="例: ○○○○株式会社" />
+        </div>
+        <div class="field">
           <label class="field__label" for="job-place">工事場所</label>
           <input id="job-place" class="field__input" type="text"
             placeholder="例: 神戸市西区○○" />
@@ -81,7 +86,7 @@
       <input id="photo-input" class="visually-hidden" type="file"
         accept="image/*" multiple />
       <button id="generate-pdf-top" class="btn btn--block" type="button" disabled>
-        PDFを生成
+        PDF生成・プレビュー
       </button>
       <p id="photo-count" class="picker__count"></p>
     </section>
@@ -105,12 +110,10 @@
     <!-- 送付ブロック（PDF生成後に表示） -->
     <div id="pdf-result" class="pdf-result is-hidden"></div>
 
-    <!-- 下部操作: 生成 → 開く（クリア・設定はヘッダーで操作） -->
+    <!-- 下部操作: 生成＝プレビューも自動表示（クリア・設定はヘッダーで操作） -->
     <button id="generate-pdf" class="btn btn--block" type="button" disabled>
-      PDFを生成
+      PDF生成・プレビュー
     </button>
-    <a id="open-pdf" class="btn btn--ghost btn--block is-hidden" target="_blank"
-      rel="noopener">PDFを開く（プレビュー）</a>
   </main>
 
   <!-- ===== 設定画面（オーバーレイ） ===== -->
@@ -242,14 +245,14 @@
           <input id="lc-orderNo" class="field__input" type="text" placeholder="例: 12345" />
         </div>
         <div class="field">
-          <label class="field__label" for="lc-customer">顧客名</label>
-          <input id="lc-customer" class="field__input" type="text"
-            placeholder="例: ○○○○株式会社" />
-        </div>
-        <div class="field">
           <label class="field__label" for="lc-name">工事名</label>
           <input id="lc-name" class="field__input" type="text"
             placeholder="例: 換気ダクト敷設工事" />
+        </div>
+        <div class="field">
+          <label class="field__label" for="lc-customer">顧客名</label>
+          <input id="lc-customer" class="field__input" type="text"
+            placeholder="例: ○○○○株式会社" />
         </div>
         <div class="field">
           <label class="field__label" for="lc-place">工事場所</label>

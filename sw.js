@@ -7,7 +7,7 @@
    ※ キャッシュを作り直したい時は CACHE_NAME のバージョンを上げる。
    =========================================================== */
 
-const CACHE_NAME = "koji-photo-app-v15";
+const CACHE_NAME = "koji-photo-app-v16";
 
 const APP_SHELL = [
   "./",

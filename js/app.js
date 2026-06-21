@@ -116,7 +116,7 @@
     "ご依頼の工事が完了致しましたので、添付にて工事写真帳を送付致します。\n" +
     "ご査収の程よろしくお願い致します。";
   const DEFAULT_BODY_TPL = { list: [DEFAULT_BODY], selected: 0 };
-  const DEFAULT_JOB = { orderNo: "", name: "", place: "" };
+  const DEFAULT_JOB = { orderNo: "", name: "", customer: "", place: "" };
 
   /* ---------- 状態 ---------- */
   const state = {
@@ -194,6 +194,7 @@
     // 工事情報
     jobOrderNo: $("job-orderNo"),
     jobName: $("job-name"),
+    jobCustomer: $("job-customer"),
     jobPlace: $("job-place"),
     jobToggle: $("job-toggle"),
     jobBody: $("job-body"),
@@ -212,7 +213,6 @@
     clearAll: $("clear-all"),
     generatePdf: $("generate-pdf"),
     generatePdfTop: $("generate-pdf-top"),
-    openPdf: $("open-pdf"),
     pdfResult: $("pdf-result"),
     // 設定
     openSettings: $("open-settings"),
@@ -241,6 +241,7 @@
   function initJobInfo() {
     els.jobOrderNo.value = state.job.orderNo;
     els.jobName.value = state.job.name;
+    els.jobCustomer.value = state.job.customer || "";
     els.jobPlace.value = state.job.place;
 
     els.jobOrderNo.addEventListener("input", () => {
@@ -250,6 +251,11 @@
     });
     els.jobName.addEventListener("input", () => {
       state.job.name = els.jobName.value;
+      save(LS.job, state.job);
+      updateClearBtn();
+    });
+    els.jobCustomer.addEventListener("input", () => {
+      state.job.customer = els.jobCustomer.value;
       save(LS.job, state.job);
       updateClearBtn();
     });
@@ -282,6 +288,7 @@
       const parts = [
         state.job.orderNo && "No." + state.job.orderNo,
         state.job.name,
+        state.job.customer,
         state.job.place,
       ].filter(Boolean);
       els.jobSummary.textContent = parts.length
@@ -651,11 +658,13 @@
     state.job = {
       orderNo: (tpl.job && tpl.job.orderNo) || "",
       name: (tpl.job && tpl.job.name) || "",
+      customer: tpl.customer || "",
       place: (tpl.job && tpl.job.place) || "",
     };
     save(LS.job, state.job);
     els.jobOrderNo.value = state.job.orderNo;
     els.jobName.value = state.job.name;
+    els.jobCustomer.value = state.job.customer;
     els.jobPlace.value = state.job.place;
 
     state.activeTemplate = {
@@ -893,10 +902,11 @@
     save(LS.session, { order: [], cats: {} });
 
     // 工事情報
-    state.job = { orderNo: "", name: "", place: "" };
+    state.job = { orderNo: "", name: "", customer: "", place: "" };
     save(LS.job, state.job);
     els.jobOrderNo.value = "";
     els.jobName.value = "";
+    els.jobCustomer.value = "";
     els.jobPlace.value = "";
     jobInfoCollapsed = false; // 工事情報を展開状態に戻す
 
@@ -916,10 +926,8 @@
     }
     els.pdfResult.innerHTML = "";
     els.pdfResult.classList.add("is-hidden");
-    els.openPdf.classList.add("is-hidden");
-    els.openPdf.removeAttribute("href");
 
-    // 「PDFを生成」ボタンを元の青背景に戻す
+    // 「PDF生成・プレビュー」ボタンを元の青背景に戻す
     els.generatePdf.classList.remove("btn--ghost");
     els.generatePdfTop.classList.remove("btn--ghost");
 
@@ -976,9 +984,22 @@
     // 施工区分（選択）: 候補チップをタップで選択（再タップで解除）
     const catWrap = document.createElement("div");
     catWrap.className = "pfield";
+
+    // ラベルと「候補を編集」を同じ行に（ラベル左寄せ／編集リンク右端）
+    const catHead = document.createElement("div");
+    catHead.className = "pfield__head";
     const catLabel = document.createElement("span");
     catLabel.className = "pfield__label";
     catLabel.textContent = "施工区分（選択）";
+    catHead.appendChild(catLabel);
+    if (!state.activeTemplate) {
+      const editToggle = document.createElement("button");
+      editToggle.type = "button";
+      editToggle.className = "link-btn";
+      editToggle.textContent = catEditMode ? "完了" : "候補を編集";
+      editToggle.addEventListener("click", toggleCatEdit);
+      catHead.appendChild(editToggle);
+    }
 
     const chips = document.createElement("div");
     chips.className = "chips";
@@ -1032,25 +1053,14 @@
       syncChips(chips, photo.category);
     }
 
-    catWrap.append(catLabel, chips);
+    catWrap.append(catHead, chips);
 
-    // 候補の編集トグル（協力会社自身の候補のとき。指示中は編集不可）
-    if (!state.activeTemplate) {
-      const catTools = document.createElement("div");
-      catTools.className = "cat-tools";
-      const editToggle = document.createElement("button");
-      editToggle.type = "button";
-      editToggle.className = "link-btn";
-      editToggle.textContent = catEditMode ? "完了" : "候補を編集";
-      editToggle.addEventListener("click", toggleCatEdit);
-      catTools.appendChild(editToggle);
-      if (catEditMode) {
-        const hint = document.createElement("span");
-        hint.className = "cat-tools__hint";
-        hint.textContent = "✕で削除 ／「＋追加」で候補を追加";
-        catTools.appendChild(hint);
-      }
-      catWrap.appendChild(catTools);
+    // 編集モードのヒント（候補を編集中のみ）
+    if (catEditMode && !state.activeTemplate) {
+      const hint = document.createElement("p");
+      hint.className = "cat-tools__hint";
+      hint.textContent = "✕で削除 ／「＋追加」で候補を追加";
+      catWrap.appendChild(hint);
     }
 
     // 自由入力: 選択肢とは別の行としてPDFに表示される
@@ -1239,9 +1249,18 @@
       return;
     }
 
+    // 生成後に自動でプレビュー表示するため、ユーザー操作（クリック）の文脈で
+    // 先に空タブを開いておく（iOSのポップアップブロック回避）。
+    let previewWin = null;
+    try {
+      previewWin = window.open("", "_blank");
+    } catch (e) {
+      previewWin = null;
+    }
+
     const genBtns = [els.generatePdf, els.generatePdfTop];
     genBtns.forEach((b) => (b.disabled = true));
-    const orgLabel = "PDFを生成";
+    const orgLabel = "PDF生成・プレビュー";
     const setLabel = (t) => genBtns.forEach((b) => (b.textContent = t));
     setLabel("生成中…");
     els.pdfResult.classList.add("is-hidden");
@@ -1285,15 +1304,19 @@
       els.pdfResult.append(sendBox, info);
       els.pdfResult.classList.remove("is-hidden");
 
-      // 「PDFを開く（プレビュー）」ボタンを表示・リンク更新（自動では開かない。
-      // 自動で別タブを開くと、戻った時にPWAが再読み込みされ送付ボタンが消えるため）
-      els.openPdf.href = lastPdfUrl;
-      els.openPdf.classList.remove("is-hidden");
+      // 生成後に自動でPDFをプレビュー表示する
+      if (previewWin && !previewWin.closed) {
+        previewWin.location.href = lastPdfUrl;
+      } else {
+        // ポップアップがブロックされた場合は新規タブで開く（アプリ画面は保持）
+        window.open(lastPdfUrl, "_blank");
+      }
 
-      // 一度生成したら「PDFを生成」ボタン（上下とも）を白背景・青文字に
+      // 一度生成したら生成ボタン（上下とも）を白背景・青文字に
       genBtns.forEach((b) => b.classList.add("btn--ghost"));
     } catch (e) {
       console.error("[koji] PDF生成エラー:", e);
+      if (previewWin && !previewWin.closed) previewWin.close();
       alert("PDFの生成に失敗しました: " + (e && e.message ? e.message : e));
     } finally {
       setLabel(orgLabel);
