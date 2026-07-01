@@ -100,11 +100,11 @@
     "完了",
   ];
   const DEFAULT_COMPANY = {
-    name: "株式会社安福冷暖",
-    postal: "651-2411",
-    address: "神戸市西区上新地1丁目1-6",
-    tel: "(078)967-3855",
-    fax: "(078)967-3856",
+    name: "土牛産業株式会社",
+    postal: "673-0443",
+    address: "兵庫県三木市別所町巴38番地",
+    tel: "0794-82-0880",
+    fax: "0794-82-0880",
   };
   const DEFAULT_MAIL = {
     subject: "工事写真帳送付（{工事名}）",
@@ -178,6 +178,22 @@
         save(LS.mail, state.mail);
       }
       localStorage.setItem("koji.mig.defaults2", "1");
+    } catch (e) {
+      /* noop */
+    }
+  })();
+
+  // 一度だけ: 旧既定（安福冷暖）または未入力の自社情報を新既定（土牛産業）へ更新。
+  // ユーザーが独自に編集済みの場合は上書きしない。
+  (function migrateCompanyDogyu() {
+    try {
+      if (localStorage.getItem("koji.mig.company_dogyu")) return;
+      const oldNames = ["株式会社安福冷暖", "（株）安福冷暖", ""];
+      if (!state.company.name || oldNames.indexOf(state.company.name) !== -1) {
+        state.company = Object.assign({}, DEFAULT_COMPANY);
+        save(LS.company, state.company);
+      }
+      localStorage.setItem("koji.mig.company_dogyu", "1");
     } catch (e) {
       /* noop */
     }
